@@ -105,6 +105,32 @@ sudo npm install -g yarn
 sudo systemctl start mysql
 ```
 
+**Windows:**
+```powershell
+# Install Node.js (via Chocolatey atau download installer)
+# Jika menggunakan Chocolatey:
+choco install nodejs
+
+# Atau download installer dari https://nodejs.org/
+# Pilih versi LTS (Long Term Support)
+
+# Install MySQL
+# Download MySQL Installer dari https://dev.mysql.com/downloads/installer/
+# Pilih "MySQL Installer for Windows"
+# Pilih "Developer Default" atau "Server only"
+# Set password untuk root user saat instalasi
+
+# Install Yarn
+npm install -g yarn
+
+# Start MySQL Service
+# Buka Services (Win + R, ketik services.msc)
+# Cari "MySQL80" atau "MySQL" service
+# Klik kanan > Start
+# Atau gunakan Command Prompt sebagai Administrator:
+net start MySQL80
+```
+
 ### Step 2: Clone & Install Dependencies
 
 ```bash
