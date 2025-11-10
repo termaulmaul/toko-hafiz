@@ -1,4 +1,4 @@
--- Setup Database untuk Item Forecast Hub
+-- Setup Database untuk toko-hafiz
 -- Database: toko_hafizh
 -- User: root (tanpa password)
 

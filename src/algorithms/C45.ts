@@ -1,4 +1,4 @@
-// C4.5 Algorithm Implementation for Item Forecast Hub
+// C4.5 Algorithm Implementation for toko-hafiz
 // Ported from toko-hafizh project
 
 export interface TreeNode {

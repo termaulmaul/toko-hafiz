@@ -1,7 +1,7 @@
 {
   "name": "toko-hafiz-backend",
   "version": "1.0.0",
-  "description": "Backend API untuk Item Forecast Hub dengan algoritma C4.5",
+  "description": "Backend API untuk toko-hafiz dengan algoritma C4.5",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -34,6 +34,6 @@
     "mysql",
     "api"
   ],
-  "author": "Item Forecast Hub",
+  "author": "toko-hafiz",
   "license": "MIT"
 }

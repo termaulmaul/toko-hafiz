@@ -1,4 +1,4 @@
-// Data Utilities for Item Forecast Hub
+// Data Utilities for toko-hafiz
 import { TrainingData } from '../algorithms/C45';
 
 export interface CSVRow {

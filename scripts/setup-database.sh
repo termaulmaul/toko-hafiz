@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Script untuk setup database MySQL
-# Item Forecast Hub - Database Setup
+# toko-hafiz - Database Setup
 
-echo "🗄️  Setting up database for Item Forecast Hub..."
+echo "🗄️  Setting up database for toko-hafiz..."
 
 # Cek apakah MySQL berjalan
 if ! command -v mysql &> /dev/null; then
