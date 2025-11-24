@@ -1110,7 +1110,7 @@ app.post("/api/data/upload", upload.single("file"), async (req, res) => {
             continue;
           }
 
-          // Insert into database
+          // Insert into data_unified
           await pool.execute(
             `INSERT INTO data_unified
              (jenis_barang, kategori, harga, bulan, jumlah_penjualan, stok, status, status_penjualan, status_stok)
@@ -1127,6 +1127,63 @@ app.post("/api/data/upload", upload.single("file"), async (req, res) => {
               row.status_stok,
             ]
           );
+
+          // Auto-sync to data_stok: Insert or update inventory
+          try {
+            // Check if product exists in data_stok
+            const [existing] = await pool.execute(
+              `SELECT id FROM data_stok WHERE nama_barang = ?`,
+              [row.jenis_barang]
+            );
+
+            if (existing.length === 0) {
+              // Product doesn't exist, create new entry
+              // Generate unique kode_barang
+              const kodeBarang = row.jenis_barang
+                .substring(0, 3)
+                .toUpperCase()
+                .replace(/[^A-Z]/g, 'X') +
+                String(Date.now()).slice(-3);
+
+              // Calculate stok_minimum (30% of current stok)
+              const stokMin = Math.floor(parseInt(row.stok) * 0.3);
+              // Calculate stok_maksimum (200% of current stok)
+              const stokMax = Math.floor(parseInt(row.stok) * 2);
+
+              await pool.execute(
+                `INSERT INTO data_stok
+                 (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aktif')`,
+                [
+                  kodeBarang,
+                  row.jenis_barang,
+                  row.kategori,
+                  parseInt(row.harga),
+                  parseInt(row.stok),
+                  stokMin,
+                  stokMax,
+                  parseInt(row.stok)
+                ]
+              );
+            } else {
+              // Product exists, update stok_sekarang (use latest stok from import)
+              await pool.execute(
+                `UPDATE data_stok
+                 SET stok_sekarang = ?, harga_satuan = ?, kategori = ?
+                 WHERE nama_barang = ?`,
+                [
+                  parseInt(row.stok),
+                  parseInt(row.harga),
+                  row.kategori,
+                  row.jenis_barang
+                ]
+              );
+            }
+          } catch (syncError) {
+            console.warn(`Sync warning for ${row.jenis_barang}:`, syncError.message);
+            // Continue even if sync fails, data_unified is more important
+          }
+
           importedCount++;
         } catch (error) {
           errors.push(`Row ${importedCount + 1}: ${error.message}`);
@@ -1195,6 +1252,99 @@ app.get("/api/data/export", async (req, res) => {
     }
   } catch (error) {
     handleError(res, error, "Failed to export data");
+  }
+});
+
+// Sync data_unified to data_stok (manual sync for existing data)
+app.post("/api/data/sync-to-stok", async (req, res) => {
+  try {
+    console.log("🔄 Starting manual sync from data_unified to data_stok...");
+
+    // Get unique products from data_unified (latest entry for each product)
+    const [products] = await pool.execute(`
+      SELECT jenis_barang, kategori, harga, stok
+      FROM data_unified
+      WHERE (jenis_barang, created_at) IN (
+        SELECT jenis_barang, MAX(created_at)
+        FROM data_unified
+        GROUP BY jenis_barang
+      )
+      ORDER BY jenis_barang
+    `);
+
+    let newProducts = 0;
+    let updatedProducts = 0;
+    let skippedProducts = 0;
+    const errors = [];
+
+    for (const product of products) {
+      try {
+        // Check if product exists in data_stok
+        const [existing] = await pool.execute(
+          `SELECT id FROM data_stok WHERE nama_barang = ?`,
+          [product.jenis_barang]
+        );
+
+        if (existing.length === 0) {
+          // Product doesn't exist, create new entry
+          const kodeBarang = product.jenis_barang
+            .substring(0, 3)
+            .toUpperCase()
+            .replace(/[^A-Z]/g, 'X') +
+            String(Date.now()).slice(-3);
+
+          const stokMin = Math.floor(parseInt(product.stok) * 0.3);
+          const stokMax = Math.floor(parseInt(product.stok) * 2);
+
+          await pool.execute(
+            `INSERT INTO data_stok
+             (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aktif')`,
+            [
+              kodeBarang,
+              product.jenis_barang,
+              product.kategori,
+              parseInt(product.harga),
+              parseInt(product.stok),
+              stokMin,
+              stokMax,
+              parseInt(product.stok)
+            ]
+          );
+          newProducts++;
+        } else {
+          // Product exists, update with latest data
+          await pool.execute(
+            `UPDATE data_stok
+             SET stok_sekarang = ?, harga_satuan = ?, kategori = ?
+             WHERE nama_barang = ?`,
+            [
+              parseInt(product.stok),
+              parseInt(product.harga),
+              product.kategori,
+              product.jenis_barang
+            ]
+          );
+          updatedProducts++;
+        }
+      } catch (error) {
+        errors.push(`${product.jenis_barang}: ${error.message}`);
+        skippedProducts++;
+      }
+    }
+
+    console.log(`✅ Sync completed: ${newProducts} new, ${updatedProducts} updated, ${skippedProducts} skipped`);
+
+    sendResponse(res, true, {
+      message: `Sync completed successfully`,
+      new_products: newProducts,
+      updated_products: updatedProducts,
+      skipped_products: skippedProducts,
+      total_processed: products.length,
+      errors: errors
+    });
+  } catch (error) {
+    handleError(res, error, "Failed to sync data to data_stok");
   }
 });
 
