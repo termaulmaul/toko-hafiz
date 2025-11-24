@@ -1,10 +1,10 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const csv = require('csv-parser');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const csv = require("csv-parser");
 
-const uploadDir = path.join(__dirname, '../uploads');
+const uploadDir = path.join(__dirname, "../uploads");
 
 // Ensure directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -17,30 +17,33 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     // Generate secure random filename instead of using user input
-    const uniqueName = crypto.randomBytes(16).toString('hex');
+    const uniqueName = crypto.randomBytes(16).toString("hex");
     cb(null, `${uniqueName}.csv`);
-  }
+  },
 });
 
 const fileFilter = (req, file, cb) => {
   // Sanitize original filename for logging only
-  const sanitized = path.basename(file.originalname)
-    .replace(/[^a-zA-Z0-9._-]/g, '_');
+  const sanitized = path
+    .basename(file.originalname)
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
 
-  // Check MIME type
-  const allowedMimes = ['text/csv', 'application/csv', 'text/plain'];
-  if (!allowedMimes.includes(file.mimetype)) {
-    return cb(new Error('Invalid file type. Only CSV allowed.'));
-  }
+  // Check MIME type - allow more flexible CSV MIME types
+  const allowedMimes = [
+    "text/csv",
+    "application/csv",
+    "text/plain",
+    "application/vnd.ms-excel", // Sometimes CSV is detected as this
+    "text/x-csv",
+    "application/x-csv",
+  ];
 
-  // Check file extension
-  if (!sanitized.toLowerCase().endsWith('.csv')) {
-    return cb(new Error('File must have .csv extension'));
-  }
+  const hasValidMime = allowedMimes.includes(file.mimetype);
+  const hasValidExtension = sanitized.toLowerCase().endsWith(".csv");
 
-  // Check file size (5MB max)
-  if (file.size > 5 * 1024 * 1024) {
-    return cb(new Error('File too large. Maximum 5MB.'));
+  // Accept if either MIME type is valid OR extension is .csv
+  if (!hasValidMime && !hasValidExtension) {
+    return cb(new Error("Invalid file type. Only CSV allowed."));
   }
 
   cb(null, true);
@@ -51,8 +54,8 @@ const upload = multer({
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
-    files: 1
-  }
+    files: 1,
+  },
 });
 
 /**
@@ -61,13 +64,13 @@ const upload = multer({
 const validateCSVContent = (filePath) => {
   return new Promise((resolve, reject) => {
     const dangerousPatterns = [
-      /^=/,              // Formula injection
-      /^@/,              // External data reference
-      /^[+-]/,           // Formula operators
-      /<script/i,        // XSS
-      /javascript:/i,    // XSS
-      /on\w+\s*=/i,      // Event handlers
-      /\x00/             // Null bytes
+      /^=/, // Formula injection
+      /^@/, // External data reference
+      /^[+-]/, // Formula operators
+      /<script/i, // XSS
+      /javascript:/i, // XSS
+      /on\w+\s*=/i, // Event handlers
+      /\x00/, // Null bytes
     ];
 
     const results = [];
@@ -76,7 +79,7 @@ const validateCSVContent = (filePath) => {
 
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => {
+      .on("data", (data) => {
         rowCount++;
 
         // Check row limit
@@ -87,30 +90,36 @@ const validateCSVContent = (filePath) => {
 
         // Check each cell for dangerous patterns
         Object.values(data).forEach((value, index) => {
-          if (typeof value === 'string') {
+          if (typeof value === "string") {
             for (const pattern of dangerousPatterns) {
               if (pattern.test(value)) {
-                reject(new Error(`Malicious content detected in row ${rowCount}, column ${index}`));
+                reject(
+                  new Error(
+                    `Malicious content detected in row ${rowCount}, column ${index}`
+                  )
+                );
               }
             }
 
             // Check for extremely long values
             if (value.length > 65535) {
-              reject(new Error(`Value too long in row ${rowCount}, column ${index}`));
+              reject(
+                new Error(`Value too long in row ${rowCount}, column ${index}`)
+              );
             }
           }
         });
 
         results.push(data);
       })
-      .on('end', () => {
+      .on("end", () => {
         if (rowCount === 0) {
-          reject(new Error('CSV file is empty'));
+          reject(new Error("CSV file is empty"));
         } else {
           resolve(results);
         }
       })
-      .on('error', (err) => {
+      .on("error", (err) => {
         reject(new Error(`CSV parsing failed: ${err.message}`));
       });
   });
@@ -132,7 +141,7 @@ const deleteUploadedFile = (filePath) => {
       }
     }
   } catch (error) {
-    console.error('Failed to delete file:', error.message);
+    console.error("Failed to delete file:", error.message);
   }
   return false;
 };
@@ -141,5 +150,5 @@ module.exports = {
   upload,
   validateCSVContent,
   deleteUploadedFile,
-  uploadDir
+  uploadDir,
 };

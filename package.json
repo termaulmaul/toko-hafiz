@@ -15,9 +15,14 @@
     "backend:setup": "./scripts/setup-database.sh",
     "backend:start": "./scripts/start-backend.sh",
     "backend:install": "cd backend && npm install",
-    "setup": "yarn install && yarn backend:install && yarn backend:setup"
+    "setup": "yarn install && yarn backend:install && yarn backend:setup",
+    "figma:build": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output",
+    "figma:publish": "figma connect publish",
+    "figma:parse": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output", 
+    "figma:dev": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output --verbose"
   },
   "dependencies": {
+    "@figma/code-connect": "^1.3.9",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
