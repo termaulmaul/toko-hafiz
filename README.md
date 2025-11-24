@@ -140,14 +140,38 @@ yarn install
 ```
 
 #### 3. Setup Database
-```sql
-# Start XAMPP MySQL
-# Create database
-CREATE DATABASE toko_hafizh CHARACTER SET utf8mb4;
 
-# Import schema
-mysql -u root toko_hafizh < backend/schema.sql
+**Metode 1: Import SQL File (RECOMMENDED untuk Tim)**
+```bash
+# 1. Start XAMPP MySQL (klik "Start" pada MySQL di XAMPP Control Panel)
+
+# 2. Buka Terminal/CMD dan jalankan:
+cd toko-hafiz
+mysql -u root -p < database/toko_hafizh_complete.sql
+
+# 3. Enter password MySQL Anda (default XAMPP: kosong, tekan Enter)
+
+# 4. Verify database berhasil dibuat:
+mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
 ```
+
+**Metode 2: Import via phpMyAdmin (GUI)**
+```
+1. Buka XAMPP Control Panel
+2. Klik "Admin" pada MySQL → phpMyAdmin terbuka
+3. Klik tab "Import"
+4. Klik "Choose File" → pilih: database/toko_hafizh_complete.sql
+5. Scroll ke bawah, klik "Import"
+6. Tunggu sampai muncul "Import has been successfully finished"
+7. Database "toko_hafizh" akan muncul di sidebar kiri
+```
+
+**Apa yang Sudah Ada di Database:**
+- ✅ **45 Master Products** (Sembako, Makanan, Minuman, Toiletries)
+- ✅ **225 Training Records** (5 bulan data untuk setiap produk)
+- ✅ **45 Stock Records** (inventory real-time)
+- ✅ **1 Model Run** (C4.5 hasil mining dengan 121 rules)
+- ✅ **Data Sudah Balance** (33% Rendah, 40% Cukup, 27% Berlebih)
 
 #### 4. Configure Environment
 ```bash
