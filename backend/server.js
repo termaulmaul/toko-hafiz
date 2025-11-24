@@ -840,11 +840,14 @@ app.post("/api/data-stok", async (req, res) => {
       nama_barang,
       kategori,
       harga_satuan,
-      stok_awal,
+      stok_sekarang,
       stok_minimum,
       stok_maksimum,
       status_barang,
     } = req.body;
+
+    // stok_awal defaults to stok_sekarang if not provided
+    const stok_awal = req.body.stok_awal || stok_sekarang;
 
     const [result] = await pool.execute(
       `INSERT INTO data_stok
@@ -858,7 +861,7 @@ app.post("/api/data-stok", async (req, res) => {
         stok_awal,
         stok_minimum,
         stok_maksimum,
-        stok_awal,
+        stok_sekarang,
         status_barang,
       ]
     );
