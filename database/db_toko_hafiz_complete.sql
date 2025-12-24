@@ -1,6 +1,6 @@
 -- MariaDB dump 10.19  Distrib 10.4.28-MariaDB, for osx10.10 (x86_64)
 --
--- Host: localhost    Database: toko_hafizh
+-- Host: localhost    Database: db_toko_hafiz
 -- ------------------------------------------------------
 -- Server version	10.4.28-MariaDB
 

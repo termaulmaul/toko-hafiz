@@ -4,7 +4,7 @@
 
 ### ✅ Apa yang Ada di Database Ini?
 
-File **`toko_hafizh_complete.sql`** berisi:
+File **`db_toko_hafiz_complete.sql`** berisi:
 
 1. **Database Schema** (struktur tabel)
    - `master_products` - 45 produk lengkap
@@ -43,7 +43,7 @@ File **`toko_hafizh_complete.sql`** berisi:
 ```
 1. Klik tab "Import" di menu atas
 2. Klik tombol "Choose File"
-3. Pilih file: toko-hafiz/database/toko_hafizh_complete.sql
+3. Pilih file: toko-hafiz/database/db_toko_hafiz_complete.sql
 4. Scroll ke bawah
 5. Pastikan:
    - Format: SQL
@@ -56,7 +56,7 @@ File **`toko_hafizh_complete.sql`** berisi:
 
 ### Step 4: Verify Import Berhasil
 ```
-1. Klik "toko_hafizh" di sidebar kiri
+1. Klik "db_toko_hafiz" di sidebar kiri
 2. Pastikan muncul 6 tabel:
    ✅ master_products (45 rows)
    ✅ data_unified (225 rows)
@@ -77,12 +77,12 @@ File **`toko_hafizh_complete.sql`** berisi:
 cd C:\xampp\htdocs\toko-hafiz
 
 # 2. Import database
-C:\xampp\mysql\bin\mysql.exe -u root -p < database\toko_hafizh_complete.sql
+C:\xampp\mysql\bin\mysql.exe -u root -p < database\db_toko_hafiz_complete.sql
 
 # 3. Enter password (default: kosong, langsung tekan Enter)
 
 # 4. Verify
-C:\xampp\mysql\bin\mysql.exe -u root -p -e "USE toko_hafizh; SHOW TABLES;"
+C:\xampp\mysql\bin\mysql.exe -u root -p -e "USE db_toko_hafiz; SHOW TABLES;"
 ```
 
 ### Mac:
@@ -91,12 +91,12 @@ C:\xampp\mysql\bin\mysql.exe -u root -p -e "USE toko_hafizh; SHOW TABLES;"
 cd ~/github/toko-hafiz
 
 # 2. Import database
-/Applications/XAMPP/xamppfiles/bin/mysql -u root -p < database/toko_hafizh_complete.sql
+/Applications/XAMPP/xamppfiles/bin/mysql -u root -p < database/db_toko_hafiz_complete.sql
 
 # 3. Enter password (default: kosong, langsung tekan Enter)
 
 # 4. Verify
-/Applications/XAMPP/xamppfiles/bin/mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
+/Applications/XAMPP/xamppfiles/bin/mysql -u root -p -e "USE db_toko_hafiz; SHOW TABLES;"
 ```
 
 ### Linux:
@@ -105,12 +105,12 @@ cd ~/github/toko-hafiz
 cd ~/toko-hafiz
 
 # 2. Import database
-mysql -u root -p < database/toko_hafizh_complete.sql
+mysql -u root -p < database/db_toko_hafiz_complete.sql
 
 # 3. Enter password (default: kosong, langsung tekan Enter)
 
 # 4. Verify
-mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
+mysql -u root -p -e "USE db_toko_hafiz; SHOW TABLES;"
 ```
 
 ---
@@ -119,7 +119,7 @@ mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
 
 ### Cek via phpMyAdmin:
 ```
-1. Klik "toko_hafizh" database
+1. Klik "db_toko_hafiz" database
 2. Klik "master_products" → lihat 45 produk
 3. Klik "data_unified" → lihat 225 training records
 4. Klik "data_stok" → lihat 45 stock records
@@ -167,17 +167,17 @@ GROUP BY status_stok;
 1. XAMPP default MySQL password adalah KOSONG
 2. Saat diminta password, langsung tekan Enter (jangan ketik apa-apa)
 3. Atau hapus parameter -p:
-   mysql -u root < database/toko_hafizh_complete.sql
+   mysql -u root < database/db_toko_hafiz_complete.sql
 ```
 
-### ❌ Error: "Database toko_hafizh already exists"
+### ❌ Error: "Database db_toko_hafiz already exists"
 **Solusi:**
 ```sql
 -- Drop database lama dulu
-DROP DATABASE toko_hafizh;
+DROP DATABASE db_toko_hafiz;
 
 -- Baru import ulang
-mysql -u root -p < database/toko_hafizh_complete.sql
+mysql -u root -p < database/db_toko_hafiz_complete.sql
 ```
 
 ### ❌ Error: "Table already exists"
@@ -187,7 +187,7 @@ File SQL sudah include DROP TABLE IF EXISTS
 Ini tidak mungkin terjadi kecuali Anda import sebagian file
 
 Solusi:
-1. Drop database: DROP DATABASE toko_hafizh;
+1. Drop database: DROP DATABASE db_toko_hafiz;
 2. Import ulang file lengkap
 ```
 
@@ -197,7 +197,7 @@ Solusi:
 MySQL versi terlalu lama (< 5.5)
 
 Upgrade MySQL atau ganti collation:
-1. Buka file toko_hafizh_complete.sql dengan text editor
+1. Buka file db_toko_hafiz_complete.sql dengan text editor
 2. Find & Replace:
    - utf8mb4_unicode_ci → utf8_general_ci
    - utf8mb4 → utf8
@@ -216,7 +216,7 @@ Cara 1: Increase PHP memory
 4. Restart Apache di XAMPP
 
 Cara 2: Gunakan Command Line (lebih cepat)
-mysql -u root -p < database/toko_hafizh_complete.sql
+mysql -u root -p < database/db_toko_hafiz_complete.sql
 ```
 
 ---
@@ -338,7 +338,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=toko_hafizh
+DB_NAME=db_toko_hafiz
 PORT=3000
 NODE_ENV=development
 EOF
@@ -387,7 +387,7 @@ Jika ada masalah saat import:
 1. **Cek log error** di Terminal/CMD
 2. **Screenshot error** yang muncul
 3. **Verify XAMPP MySQL sudah running** (status hijau di XAMPP Control Panel)
-4. **Cek file size**: database/toko_hafizh_complete.sql harus ~104KB
+4. **Cek file size**: database/db_toko_hafiz_complete.sql harus ~104KB
 5. **Contact team lead** dengan info:
    - OS Anda (Windows/Mac/Linux)
    - MySQL version (cek di XAMPP: mysql --version)
@@ -400,7 +400,7 @@ Jika ada masalah saat import:
 Sebelum mulai development, pastikan:
 
 - [ ] XAMPP MySQL sudah running (status hijau)
-- [ ] Database `toko_hafizh` berhasil dibuat
+- [ ] Database `db_toko_hafiz` berhasil dibuat
 - [ ] 6 tabel berhasil di-create
 - [ ] master_products berisi 45 rows
 - [ ] data_unified berisi 225 rows

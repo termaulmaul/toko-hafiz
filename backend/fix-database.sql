@@ -1,5 +1,5 @@
 -- Script untuk memperbaiki dan mengoptimalkan database untuk C4.5
-USE toko_hafizh;
+USE db_toko_hafiz;
 
 -- Disable foreign key checks
 SET FOREIGN_KEY_CHECKS = 0;

@@ -9,7 +9,7 @@ const dbConfig = {
   port: parseInt(process.env.DB_PORT || '3306'),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'toko_hafizh',
+  database: process.env.DB_NAME || 'db_toko_hafiz',
   charset: 'utf8mb4',
   timezone: process.env.DB_TIMEZONE || '+07:00',
 };

@@ -77,10 +77,20 @@ const dbConfig = {
   port: parseInt(process.env.DB_PORT || "3306"),
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "toko_hafizh",
+  database: process.env.DB_NAME || "db_toko_hafiz",
   charset: "utf8mb4",
   timezone: process.env.DB_TIMEZONE || "+07:00",
+  socketPath: process.env.DB_SOCKET_PATH || "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
 };
+
+// Log the actual database configuration being used
+console.log("🔍 Database Configuration:");
+console.log(`  Host: ${dbConfig.host}`);
+console.log(`  Port: ${dbConfig.port}`);
+console.log(`  User: ${dbConfig.user}`);
+console.log(`  Database: ${dbConfig.database}`);
+console.log(`  Socket: ${dbConfig.socketPath}`);
+console.log(`  Environment DB_NAME: ${process.env.DB_NAME || 'not set'}`);
 
 // Create database pool
 const pool = mysql.createPool({
@@ -89,7 +99,6 @@ const pool = mysql.createPool({
   connectionLimit: 50, // Increased from 10 for better concurrency
   queueLimit: 100, // Added bounded queue
   connectTimeout: 10000,
-  acquireTimeout: 10000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
 });
@@ -273,100 +282,42 @@ app.get("/api/data/validate", async (req, res) => {
   }
 });
 
-// Get data quality status
-app.get("/api/data-quality", async (req, res) => {
+// Get dashboard statistics
+app.get("/api/dashboard/stats", async (req, res) => {
   try {
-    const [statsResult] = await pool.execute(`
+    // Get total data count
+    const [totalResult] = await pool.execute("SELECT COUNT(*) as total FROM data_unified");
+    const totalData = totalResult[0].total;
+
+    // Get training/testing split counts
+    const [splitResult] = await pool.execute(`
       SELECT
-        COUNT(*) as total_records,
-        SUM(CASE WHEN split_type = 'latih' THEN 1 ELSE 0 END) as training_records,
-        SUM(CASE WHEN split_type = 'uji' THEN 1 ELSE 0 END) as testing_records,
-        SUM(CASE WHEN split_type IS NULL THEN 1 ELSE 0 END) as unsplit_records
+        SUM(CASE WHEN split_type = 'latih' THEN 1 ELSE 0 END) as training,
+        SUM(CASE WHEN split_type = 'uji' THEN 1 ELSE 0 END) as testing,
+        SUM(CASE WHEN split_type IS NULL THEN 1 ELSE 0 END) as unsplit
       FROM data_unified
     `);
 
-    const stats = statsResult[0];
-    const totalRecords = parseInt(stats.total_records);
-    const trainingRecords = parseInt(stats.training_records);
-    const testingRecords = parseInt(stats.testing_records);
-    const unsplitRecords = parseInt(stats.unsplit_records);
+    // Get unique categories count
+    const [categoryResult] = await pool.execute("SELECT COUNT(DISTINCT kategori) as categories FROM data_unified");
 
-    // Check data quality
-    let status = "success";
-    let message = "Data siap untuk proses mining";
-    let balance_ratio = 1.0;
+    // Get low stock count (stok < 50)
+    const [lowStockResult] = await pool.execute("SELECT COUNT(*) as low_stock FROM data_unified WHERE stok < 50");
 
-    if (totalRecords === 0) {
-      status = "error";
-      message = "Tidak ada data tersedia";
-    } else {
-      // Check for missing values in all data (CRITICAL for C4.5)
-      const [missingValuesResult] = await pool.execute(`
-        SELECT
-          SUM(CASE WHEN jenis_barang IS NULL OR jenis_barang = '' THEN 1 ELSE 0 END) as missing_jenis_barang,
-          SUM(CASE WHEN kategori IS NULL OR kategori = '' THEN 1 ELSE 0 END) as missing_kategori,
-          SUM(CASE WHEN harga IS NULL OR harga = 0 THEN 1 ELSE 0 END) as missing_harga,
-          SUM(CASE WHEN bulan IS NULL OR bulan = '' THEN 1 ELSE 0 END) as missing_bulan,
-          SUM(CASE WHEN jumlah_penjualan IS NULL OR jumlah_penjualan < 0 THEN 1 ELSE 0 END) as missing_jumlah_penjualan,
-          SUM(CASE WHEN stok IS NULL OR stok < 0 THEN 1 ELSE 0 END) as missing_stok,
-          SUM(CASE WHEN status IS NULL OR status = '' THEN 1 ELSE 0 END) as missing_status,
-          SUM(CASE WHEN status_penjualan IS NULL OR status_penjualan = '' THEN 1 ELSE 0 END) as missing_status_penjualan,
-          SUM(CASE WHEN status_stok IS NULL OR status_stok = '' THEN 1 ELSE 0 END) as missing_status_stok
-        FROM data_unified
-      `);
-
-      const missingValues = missingValuesResult[0];
-      const totalMissing = Object.values(missingValues).reduce(
-        (sum, val) => sum + parseInt(val),
-        0
-      );
-
-      if (totalMissing > 0) {
-        status = "error";
-        message = `DITEMUKAN ${totalMissing} MISSING VALUES! Data tidak aman untuk C4.5. Periksa dan perbaiki data yang kosong.`;
-      } else if (unsplitRecords > 0) {
-        status = "warning";
-        message = `${unsplitRecords} data belum di-split. Total: ${trainingRecords} latih, ${testingRecords} uji`;
-      } else if (trainingRecords < 20) {
-        status = "warning";
-        message = `Data latih terlalu sedikit (${trainingRecords}). Minimal 20 records untuk C4.5 optimal`;
-      } else if (testingRecords < 10) {
-        status = "warning";
-        message = `Data uji terlalu sedikit (${testingRecords}). Minimal 10 records untuk validasi yang baik`;
-      } else {
-        // Calculate balance ratio
-        const [balanceResult] = await pool.execute(`
-          SELECT
-            status_stok,
-            COUNT(*) as count
-          FROM data_unified
-          WHERE split_type = 'latih'
-          GROUP BY status_stok
-          ORDER BY count DESC
-        `);
-
-        if (balanceResult.length > 0) {
-          const counts = balanceResult.map((r) => parseInt(r.count));
-          const maxCount = Math.max(...counts);
-          const minCount = Math.min(...counts);
-          balance_ratio = minCount / maxCount;
-        }
-
-        message = `Data berkualitas baik. ${trainingRecords} latih, ${testingRecords} uji`;
-      }
-    }
+    // Get model runs count
+    const [modelResult] = await pool.execute("SELECT COUNT(*) as models FROM model_runs");
 
     sendResponse(res, true, {
-      status,
-      message,
-      balance_ratio,
-      total_records: totalRecords,
-      training_records: trainingRecords,
-      testing_records: testingRecords,
-      unsplit_records: unsplitRecords,
+      total_data: totalData,
+      training_data: splitResult[0].training || 0,
+      testing_data: splitResult[0].testing || 0,
+      unsplit_data: splitResult[0].unsplit || 0,
+      categories: categoryResult[0].categories || 0,
+      low_stock: lowStockResult[0].low_stock || 0,
+      model_runs: modelResult[0].models || 0,
     });
   } catch (error) {
-    handleError(res, error, "Failed to check data quality");
+    handleError(res, error, "Failed to fetch dashboard statistics");
   }
 });
 
@@ -510,6 +461,45 @@ app.get("/api/statistics", async (req, res) => {
     });
   } catch (error) {
     handleError(res, error, "Failed to fetch statistics");
+  }
+});
+
+// Get dashboard statistics
+app.get("/api/dashboard/stats", async (req, res) => {
+  try {
+    // Get total data count
+    const [totalResult] = await pool.execute("SELECT COUNT(*) as total FROM data_unified");
+    const totalData = totalResult[0].total;
+
+    // Get training/testing split counts
+    const [splitResult] = await pool.execute(`
+      SELECT
+        SUM(CASE WHEN split_type = 'latih' THEN 1 ELSE 0 END) as training,
+        SUM(CASE WHEN split_type = 'uji' THEN 1 ELSE 0 END) as testing,
+        SUM(CASE WHEN split_type IS NULL THEN 1 ELSE 0 END) as unsplit
+      FROM data_unified
+    `);
+
+    // Get unique categories count
+    const [categoryResult] = await pool.execute("SELECT COUNT(DISTINCT kategori) as categories FROM data_unified");
+
+    // Get low stock count (stok < 50)
+    const [lowStockResult] = await pool.execute("SELECT COUNT(*) as low_stock FROM data_unified WHERE stok < 50");
+
+    // Get model runs count
+    const [modelResult] = await pool.execute("SELECT COUNT(*) as models FROM model_runs");
+
+    sendResponse(res, true, {
+      total_data: totalData,
+      training_data: splitResult[0].training || 0,
+      testing_data: splitResult[0].testing || 0,
+      unsplit_data: splitResult[0].unsplit || 0,
+      categories: categoryResult[0].categories || 0,
+      low_stock: lowStockResult[0].low_stock || 0,
+      model_runs: modelResult[0].models || 0,
+    });
+  } catch (error) {
+    handleError(res, error, "Failed to fetch dashboard statistics");
   }
 });
 
@@ -805,9 +795,16 @@ app.delete("/api/data-unified", async (req, res) => {
 // Get all data stok
 app.get("/api/data-stok", async (req, res) => {
   try {
-    const [rows] = await pool.execute(
-      "SELECT * FROM data_stok ORDER BY kode_barang"
-    );
+    const limit = req.query.limit ? parseInt(req.query.limit) : null;
+    let query = "SELECT * FROM data_stok ORDER BY kode_barang";
+    let params = [];
+
+    if (limit && limit > 0) {
+      query += " LIMIT ?";
+      params.push(limit);
+    }
+
+    const [rows] = await pool.execute(query, params);
     sendResponse(res, true, rows);
   } catch (error) {
     handleError(res, error, "Failed to fetch data stok");
@@ -2249,6 +2246,178 @@ app.post(
         deleteUploadedFile(req.file.path);
       }
       handleError(res, error, "Failed to import CSV data");
+    }
+  }
+);
+
+// Import CSV data stok
+app.post(
+  "/api/data-stok/import",
+  authenticateToken,
+  csrfProtection,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return sendResponse(res, false, null, "No file uploaded", 400);
+      }
+
+      const filePath = req.file.path;
+
+      // Validate CSV content for malicious patterns
+      let rows = [];
+      try {
+        rows = await validateCSVContent(filePath);
+      } catch (validationError) {
+        deleteUploadedFile(filePath);
+        return sendResponse(
+          res,
+          false,
+          null,
+          `CSV validation failed: ${validationError.message}`,
+          400
+        );
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+      const errors = [];
+
+      try {
+        // Process each row for data_stok
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+
+          try {
+            // Validate required fields for data_stok
+            const requiredFields = [
+              "kode_barang",
+              "nama_barang",
+              "kategori",
+              "harga_satuan",
+              "stok_awal",
+              "stok_minimum",
+              "stok_maksimum",
+              "status_barang"
+            ];
+
+            const missingFields = [];
+            for (const field of requiredFields) {
+              if (!row[field] || row[field].toString().trim() === "") {
+                missingFields.push(field);
+              }
+            }
+
+            if (missingFields.length > 0) {
+              errors.push(`Row ${i + 1}: Missing required fields: ${missingFields.join(", ")}`);
+              failedCount++;
+              continue;
+            }
+
+            // Validate data types
+            const hargaSatuan = parseFloat(row.harga_satuan);
+            const stokAwal = parseInt(row.stok_awal);
+            const stokMinimum = parseInt(row.stok_minimum);
+            const stokMaksimum = parseInt(row.stok_maksimum);
+
+            if (isNaN(hargaSatuan) || hargaSatuan <= 0) {
+              errors.push(`Row ${i + 1}: Invalid harga_satuan value`);
+              failedCount++;
+              continue;
+            }
+
+            if (isNaN(stokAwal) || stokAwal < 0) {
+              errors.push(`Row ${i + 1}: Invalid stok_awal value`);
+              failedCount++;
+              continue;
+            }
+
+            if (isNaN(stokMinimum) || stokMinimum < 0) {
+              errors.push(`Row ${i + 1}: Invalid stok_minimum value`);
+              failedCount++;
+              continue;
+            }
+
+            if (isNaN(stokMaksimum) || stokMaksimum <= stokMinimum) {
+              errors.push(`Row ${i + 1}: Invalid stok_maksimum value (must be > stok_minimum)`);
+              failedCount++;
+              continue;
+            }
+
+            // Check if product already exists
+            const [existing] = await db.execute(
+              "SELECT id FROM data_stok WHERE kode_barang = ?",
+              [row.kode_barang]
+            );
+
+            if (existing.length > 0) {
+              // Update existing product
+              await db.execute(
+                `UPDATE data_stok SET
+                  nama_barang = ?, kategori = ?, harga_satuan = ?,
+                  stok_awal = ?, stok_minimum = ?, stok_maksimum = ?,
+                  stok_sekarang = ?, status_barang = ?, updated_at = NOW()
+                 WHERE kode_barang = ?`,
+                [
+                  row.nama_barang,
+                  row.kategori,
+                  hargaSatuan,
+                  stokAwal,
+                  stokMinimum,
+                  stokMaksimum,
+                  stokAwal, // Set stok_sekarang to stok_awal for new imports
+                  row.status_barang,
+                  row.kode_barang
+                ]
+              );
+            } else {
+              // Insert new product
+              await db.execute(
+                `INSERT INTO data_stok
+                  (kode_barang, nama_barang, kategori, harga_satuan,
+                   stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  row.kode_barang,
+                  row.nama_barang,
+                  row.kategori,
+                  hargaSatuan,
+                  stokAwal,
+                  stokMinimum,
+                  stokMaksimum,
+                  stokAwal, // Set stok_sekarang to stok_awal for new imports
+                  row.status_barang
+                ]
+              );
+            }
+
+            successCount++;
+          } catch (error) {
+            errors.push(`Row ${i + 1}: ${error.message}`);
+            failedCount++;
+          }
+        }
+
+        // Clean up uploaded file
+        deleteUploadedFile(filePath);
+
+        sendResponse(res, true, {
+          successCount: successCount,
+          failedCount: failedCount,
+          errors: errors
+        }, `Successfully imported ${successCount} records, ${failedCount} failed`);
+
+      } catch (error) {
+        if (req.file) {
+          deleteUploadedFile(req.file.path);
+        }
+        handleError(res, error, "Failed to import CSV data");
+      }
+    } catch (error) {
+      if (req.file) {
+        deleteUploadedFile(req.file.path);
+      }
+      handleError(res, error, "Failed to process uploaded file");
     }
   }
 );

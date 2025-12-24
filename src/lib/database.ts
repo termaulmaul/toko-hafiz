@@ -6,7 +6,7 @@ const dbConfig = {
   port: 3306,
   user: 'root',
   password: '',
-  database: 'toko_hafizh',
+  database: 'db_toko_hafiz',
   charset: 'utf8mb4',
   timezone: '+07:00'
 };
@@ -16,10 +16,7 @@ const pool = mysql.createPool({
   ...dbConfig,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
+  queueLimit: 0
 });
 
 export interface DataUnified {

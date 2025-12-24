@@ -21,8 +21,8 @@ if ! pgrep -x "mysqld" > /dev/null; then
 fi
 
 # Check if database exists
-if ! /Applications/XAMPP/bin/mysql -u root -e "USE toko_hafizh;" 2>/dev/null; then
-    echo "⚠️  Database toko_hafizh not found. Please run 'yarn setup' first."
+if ! /Applications/XAMPP/bin/mysql -u root -e "USE db_toko_hafiz;" 2>/dev/null; then
+    echo "⚠️  Database db_toko_hafiz not found. Please run 'yarn setup' first."
     exit 1
 fi
 

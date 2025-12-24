@@ -165,7 +165,7 @@ const DataMining = () => {
         <Alert className="mb-6 border-destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Database tidak terhubung. Pastikan MySQL berjalan di localhost:3306 dengan database 'toko_hafizh'.
+            Database tidak terhubung. Pastikan MySQL berjalan di localhost:3306 dengan database 'db_toko_hafiz'.
           </AlertDescription>
         </Alert>
       )}
@@ -207,7 +207,7 @@ const DataMining = () => {
                     <strong>Data Training:</strong> 21 records dari database MySQL XAMPP<br/>
                     <strong>Data Testing:</strong> 7 records untuk validasi model<br/>
                     <strong>Target Classes:</strong> Rendah (11), Cukup (13), Berlebih (4)<br/>
-                    <strong>Database:</strong> localhost:3306/toko_hafizh
+                    <strong>Database:</strong> localhost:3306/db_toko_hafiz
                   </p>
                 </div>
               </>

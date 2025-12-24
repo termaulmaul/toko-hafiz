@@ -1,12 +1,12 @@
 -- Setup Database untuk toko-hafiz
--- Database: toko_hafizh
+-- Database: db_toko_hafiz
 -- User: root (tanpa password)
 
 -- Buat database jika belum ada
-CREATE DATABASE IF NOT EXISTS toko_hafizh CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS db_toko_hafiz CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Gunakan database
-USE toko_hafizh;
+USE db_toko_hafiz;
 
 -- Tabel data_unified (data gabungan untuk C4.5)
 CREATE TABLE IF NOT EXISTS data_unified (
@@ -178,8 +178,7 @@ INSERT INTO predictions (
 ALTER TABLE data_unified
   ADD INDEX idx_created_at (created_at DESC),
   ADD INDEX idx_split_type (split_type),
-  ADD INDEX idx_jenis_barang (jenis_barang),
-  ADD INDEX idx_kategori_bulan (kategori, bulan);
+  ADD INDEX idx_jenis_barang (jenis_barang);
 
 ALTER TABLE model_runs
   ADD INDEX idx_created_at (created_at DESC),

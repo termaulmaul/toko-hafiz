@@ -471,7 +471,7 @@ Jika masih ada masalah setelah fix:
 
 3. **Check data**:
    ```bash
-   mysql -u root -p toko_hafizh -e "SELECT COUNT(*) FROM data_stok;"
+   mysql -u root -p db_toko_hafiz -e "SELECT COUNT(*) FROM data_stok;"
    ```
 
 4. **Contact**: Open issue di GitHub atau hubungi team

@@ -15,10 +15,10 @@
 ### 2. Database Setup
 ```sql
 -- Buat database
-CREATE DATABASE toko_hafizh CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE db_toko_hafiz CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Gunakan database
-USE toko_hafizh;
+USE db_toko_hafiz;
 
 -- Tabel data_unified (data training & testing)
 CREATE TABLE data_unified (
@@ -125,7 +125,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=toko_hafizh
+DB_NAME=db_toko_hafiz
 DB_TIMEZONE=+07:00
 
 # Server Configuration

@@ -281,7 +281,7 @@ Master Products
 ```
 Status    : ✅ Running
 Port      : 3000
-Database  : MySQL (toko_hafizh)
+Database  : MySQL (db_toko_hafiz)
 Rate Limit: 500 req/min
 Security  : File validation, SQL injection prevention
 ```

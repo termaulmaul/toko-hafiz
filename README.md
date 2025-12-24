@@ -167,12 +167,12 @@ cd .. && yarn install
 
 # 2. Buka Terminal/CMD dan jalankan:
 cd toko-hafiz
-mysql -u root -p < database/toko_hafizh_complete.sql
+mysql -u root -p < database/db_toko_hafiz_complete.sql
 
 # 3. Enter password MySQL Anda (default XAMPP: kosong, tekan Enter)
 
 # 4. Verify database berhasil dibuat:
-mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
+mysql -u root -p -e "USE db_toko_hafiz; SHOW TABLES;"
 ```
 
 **Metode 2: Import via phpMyAdmin (GUI)**
@@ -180,10 +180,10 @@ mysql -u root -p -e "USE toko_hafizh; SHOW TABLES;"
 1. Buka XAMPP Control Panel
 2. Klik "Admin" pada MySQL → phpMyAdmin terbuka
 3. Klik tab "Import"
-4. Klik "Choose File" → pilih: database/toko_hafizh_complete.sql
+4. Klik "Choose File" → pilih: database/db_toko_hafiz_complete.sql
 5. Scroll ke bawah, klik "Import"
 6. Tunggu sampai muncul "Import has been successfully finished"
-7. Database "toko_hafizh" akan muncul di sidebar kiri
+7. Database "db_toko_hafiz" akan muncul di sidebar kiri
 ```
 
 **Apa yang Sudah Ada di Database:**
@@ -203,7 +203,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=toko_hafizh
+DB_NAME=db_toko_hafiz
 DB_TIMEZONE=+07:00
 PORT=3000
 NODE_ENV=development

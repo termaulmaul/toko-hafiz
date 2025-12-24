@@ -357,7 +357,7 @@ const DataMiningResults = () => {
                           <p className="ml-8">    └── <span className="text-warning font-bold">Berlebih</span></p>
                           <div className="mt-4 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
                             <p className="text-xs text-blue-800">
-                              <strong>Data Source:</strong> Database MySQL XAMPP (toko_hafizh.data_unified)<br/>
+                              <strong>Data Source:</strong> Database MySQL XAMPP (db_toko_hafiz.data_unified)<br/>
                               <strong>Training Data:</strong> 21 records, Testing Data: 7 records<br/>
                               <strong>Logic:</strong> Stok {"<"} 50 = Rendah, Stok {"<"} 150 = Cukup, Stok ≥ 150 = Berlebih
                             </p>
