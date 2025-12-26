@@ -4,39 +4,23 @@ REM toko-hafiz - Database Setup
 
 echo 🗄️  Setting up database for toko-hafiz...
 
-REM Auto-detect MySQL environment (XAMPP or Laragon)
+REM Auto-detect MySQL environment (simplified)
 set MYSQL_PATH=
 set MYSQL_TYPE=
 
-REM Check for XAMPP
+REM Check for XAMPP first
 if exist "C:\xampp\mysql\bin\mysql.exe" (
     set MYSQL_PATH=C:\xampp\mysql\bin\mysql.exe
     set MYSQL_TYPE=XAMPP
-    goto :mysql_found
+    goto :mysql_detected
 )
 
-REM Check for Laragon (common paths)
-if exist "C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe" (
-    set MYSQL_PATH=C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe
-    set MYSQL_TYPE=Laragon
-    goto :mysql_found
-)
-if exist "C:\laragon\bin\mysql\mysql-8.1.0-winx64\bin\mysql.exe" (
-    set MYSQL_PATH=C:\laragon\bin\mysql\mysql-8.1.0-winx64\bin\mysql.exe
-    set MYSQL_TYPE=Laragon
-    goto :mysql_found
-)
-if exist "C:\laragon\bin\mysql\mysql-8.2.0-winx64\bin\mysql.exe" (
-    set MYSQL_PATH=C:\laragon\bin\mysql\mysql-8.2.0-winx64\bin\mysql.exe
-    set MYSQL_TYPE=Laragon
-    goto :mysql_found
-)
-REM Try to find Laragon MySQL in bin directory
+REM Check for Laragon
 for /d %%i in (C:\laragon\bin\mysql\*) do (
     if exist "%%i\bin\mysql.exe" (
         set MYSQL_PATH=%%i\bin\mysql.exe
         set MYSQL_TYPE=Laragon
-        goto :mysql_found
+        goto :mysql_detected
     )
 )
 
@@ -51,7 +35,7 @@ echo 💡 Pastikan MySQL service sudah berjalan.
 pause
 exit /b 1
 
-:mysql_found
+:mysql_detected
 echo ✅ MySQL ditemukan (%MYSQL_TYPE%): %MYSQL_PATH%
 
 REM Cek koneksi ke MySQL

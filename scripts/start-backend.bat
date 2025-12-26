@@ -23,21 +23,47 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Auto-detect MySQL environment for database check
-set MYSQL_CHECK_CMD=
+REM Check database existence (simplified)
+echo 🔍 Checking database...
 if exist "C:\xampp\mysql\bin\mysql.exe" (
-    set MYSQL_CHECK_CMD=C:\xampp\mysql\bin\mysql.exe
-    set MYSQL_TYPE=XAMPP
-) else (
-    REM Try to find Laragon MySQL
-    for /d %%i in (C:\laragon\bin\mysql\*) do (
-        if exist "%%i\bin\mysql.exe" (
-            set MYSQL_CHECK_CMD=%%i\bin\mysql.exe
-            set MYSQL_TYPE=Laragon
-            goto :found_mysql_check
+    "C:\xampp\mysql\bin\mysql.exe" -u root -e "USE db_toko_hafiz;" 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo ❌ Database db_toko_hafiz not found. Please run 'yarn backend:setup' first.
+        pause
+        exit /b 1
+    )
+    echo ✅ Database check passed (XAMPP)
+    goto :start_server
+)
+
+REM Try Laragon paths
+for /d %%i in (C:\laragon\bin\mysql\*) do (
+    if exist "%%i\bin\mysql.exe" (
+        "%%i\bin\mysql.exe" -u root -e "USE db_toko_hafiz;" 2>nul
+        if %ERRORLEVEL% NEQ 0 (
+            echo ❌ Database db_toko_hafiz not found. Please run 'yarn backend:setup' first.
+            pause
+            exit /b 1
         )
+        echo ✅ Database check passed (Laragon)
+        goto :start_server
     )
 )
+
+echo ⚠️  Cannot verify database (MySQL client not found). Please ensure database exists.
+
+:start_server
+
+REM Try to find Laragon MySQL
+for /d %%i in (C:\laragon\bin\mysql\*) do (
+    if exist "%%i\bin\mysql.exe" (
+        set MYSQL_CHECK_CMD=%%i\bin\mysql.exe
+        set MYSQL_TYPE=Laragon
+        goto :check_database
+    )
+)
+
+:check_database
 
 :found_mysql_check
 if defined MYSQL_CHECK_CMD (
