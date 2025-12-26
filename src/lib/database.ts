@@ -45,6 +45,7 @@ export interface ModelRun {
   recall: number;
   f1_score: number;
   tree_structure: string;
+  confusionMatrix?: any; // Added confusionMatrix property
   rules_count: number;
   training_samples: number;
   test_samples: number;

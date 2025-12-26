@@ -77,9 +77,11 @@ export const DataMiningEngine: React.FC<DataMiningEngineProps> = ({
     setTrainingProgress(0);
     setError(null);
 
+    let progressInterval: NodeJS.Timeout;
+
     try {
       // Simulate progress
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setTrainingProgress(prev => {
           if (prev >= 90) {
             clearInterval(progressInterval);
@@ -112,7 +114,9 @@ export const DataMiningEngine: React.FC<DataMiningEngineProps> = ({
       }, 1000);
 
     } catch (err) {
-      clearInterval(progressInterval);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
       setIsTraining(false);
       const errorMessage = err instanceof Error ? err.message : 'Gagal melatih model';
       setError(errorMessage);

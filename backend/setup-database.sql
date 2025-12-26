@@ -35,52 +35,75 @@ CREATE TABLE IF NOT EXISTS data_unified (
 -- Tabel model_runs (menyimpan hasil training model)
 CREATE TABLE IF NOT EXISTS model_runs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    algorithm VARCHAR(100) NOT NULL,
+    algorithm VARCHAR(50) NOT NULL DEFAULT 'C4.5',
     accuracy DECIMAL(5,4) NOT NULL,
     `precision` DECIMAL(5,4) NOT NULL,
     recall DECIMAL(5,4) NOT NULL,
     f1_score DECIMAL(5,4) NOT NULL,
     tree_structure LONGTEXT NOT NULL,
+    confusion_matrix LONGTEXT NULL,
     rules_count INT DEFAULT 0,
     training_samples INT NOT NULL,
     test_samples INT NOT NULL,
+    training_time_ms INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_algorithm (algorithm),
+    INDEX idx_accuracy (accuracy DESC),
+    INDEX idx_created_at (created_at)
 );
 
 -- Tabel model_rules (menyimpan rules dari model)
 CREATE TABLE IF NOT EXISTS model_rules (
     id INT AUTO_INCREMENT PRIMARY KEY,
     model_run_id INT NOT NULL,
-    rule_condition TEXT NOT NULL,
-    rule_result VARCHAR(255) NOT NULL,
+    rule_number INT NOT NULL,
+    condition_text TEXT NOT NULL,
+    predicted_class VARCHAR(50) NOT NULL,
     confidence DECIMAL(5,4) NOT NULL,
-    support DECIMAL(5,4) NOT NULL,
+    support_count INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     FOREIGN KEY (model_run_id) REFERENCES model_runs(id) ON DELETE CASCADE,
-    INDEX idx_model_confidence (model_run_id, confidence)
+    INDEX idx_model_run (model_run_id),
+    INDEX idx_confidence (confidence)
 );
 
 -- Tabel predictions (menyimpan hasil prediksi)
 CREATE TABLE IF NOT EXISTS predictions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     model_run_id INT NOT NULL,
-    jenis_barang VARCHAR(255) NOT NULL,
-    kategori VARCHAR(255) NOT NULL,
-    harga INT NOT NULL,
-    bulan VARCHAR(50) NOT NULL,
-    jumlah_penjualan INT NOT NULL,
-    stok INT NOT NULL,
-    status VARCHAR(100) NOT NULL,
-    predicted_status_stok ENUM('Rendah', 'Cukup', 'Berlebih') NOT NULL,
+    input_data LONGTEXT NOT NULL,
+    predicted_class VARCHAR(50) NOT NULL,
     confidence DECIMAL(5,4) NOT NULL,
+    actual_class VARCHAR(50) NULL,
+    is_correct TINYINT(1) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (model_run_id) REFERENCES model_runs(id) ON DELETE CASCADE,
+    INDEX idx_model_run (model_run_id),
+    INDEX idx_predicted_class (predicted_class),
+    INDEX idx_confidence (confidence)
+);
+
+-- Tabel job_queue (untuk background jobs)
+CREATE TABLE IF NOT EXISTS job_queue (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_type VARCHAR(50) NOT NULL,
+    status ENUM('queued','processing','completed','failed') NOT NULL DEFAULT 'queued',
+    parameters LONGTEXT NOT NULL,
+    result LONGTEXT NULL,
+    error_message TEXT NULL,
+    progress INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (model_run_id) REFERENCES model_runs(id) ON DELETE CASCADE,
-    INDEX idx_model_prediction (model_run_id, created_at)
+    started_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+
+    INDEX idx_job_type (job_type),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
 );
 
 -- Tabel audit_logs (untuk tracking aktivitas)
@@ -95,7 +118,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     ip_address VARCHAR(45) NULL,
     user_agent TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     INDEX idx_action_table (action, table_name),
     INDEX idx_created_at (created_at)
 );
@@ -174,21 +197,7 @@ INSERT INTO predictions (
 (1, 'Indomie', 'Makanan', 2500, 'April', 170, 60, 'eceran', 'Cukup', 0.7500),
 (1, 'Sunlight', 'Sabun', 8000, 'April', 70, 20, 'eceran', 'Cukup', 0.7500);
 
--- Add optimized indexes for performance
-ALTER TABLE data_unified
-  ADD INDEX idx_created_at (created_at DESC),
-  ADD INDEX idx_split_type (split_type),
-  ADD INDEX idx_jenis_barang (jenis_barang);
-
-ALTER TABLE model_runs
-  ADD INDEX idx_created_at (created_at DESC),
-  ADD INDEX idx_accuracy (accuracy DESC);
-
-ALTER TABLE predictions
-  ADD INDEX idx_model_created (model_run_id, created_at DESC);
-
-ALTER TABLE model_rules
-  ADD INDEX idx_model_id (model_run_id);
+-- Add optimized indexes for performance (indexes already included in CREATE TABLE statements above)
 
 -- Show summary
 SELECT 'Database setup completed!' as status;

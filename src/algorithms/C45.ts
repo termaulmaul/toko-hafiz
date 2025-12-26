@@ -76,30 +76,37 @@ export class C45Algorithm {
    * Calculate gain ratio for an attribute
    */
   calculateGainRatio(
-    data: TrainingData[], 
-    attribute: string, 
+    data: TrainingData[],
+    attribute: string,
     targetAttribute: string
   ): number {
     const entropyBefore = this.calculateEntropy(data, targetAttribute);
     const groups = this.groupBy(data, attribute);
     const total = data.length;
-    
+
     let entropyAfter = 0;
     let splitInfo = 0;
 
     Object.values(groups).forEach(group => {
       const weight = group.length / total;
       entropyAfter += weight * this.calculateEntropy(group, targetAttribute);
-      
+
       if (weight > 0) {
         splitInfo -= weight * Math.log2(weight);
       }
     });
 
     const informationGain = entropyBefore - entropyAfter;
-    const gainRatio = splitInfo === 0 ? 0 : informationGain / splitInfo;
 
-    return gainRatio;
+    // Handle edge case where splitInfo is zero (shouldn't happen with proper data)
+    if (splitInfo === 0) {
+      return 0;
+    }
+
+    const gainRatio = informationGain / splitInfo;
+
+    // Ensure gain ratio is non-negative (information gain can be negative due to floating point precision)
+    return Math.max(0, gainRatio);
   }
 
   /**
@@ -232,36 +239,51 @@ export class C45Algorithm {
    */
   predict(tree: TreeNode, data: TrainingData): PredictionResult {
     const path: string[] = [];
-    
+
     const traverse = (node: TreeNode): string => {
       if (node.type === 'leaf') {
         return node.label!;
       }
 
       if (!node.attribute || !node.branches) {
-        return 'Cukup'; // Default prediction
+        // Improved default: analyze data context for better default
+        return this.getContextualDefault(data);
       }
 
       const value = data[node.attribute];
       path.push(`${node.attribute}=${value}`);
 
       if (value === null || value === undefined || !node.branches[value as string]) {
-        return 'Cukup'; // Default prediction
+        // Improved default: analyze data context for better default
+        return this.getContextualDefault(data);
       }
 
       return traverse(node.branches[value as string]);
     };
 
     const prediction = traverse(tree);
-    
-    // Simple confidence calculation based on tree depth
-    const confidence = Math.max(0.5, 1 - (path.length * 0.1));
-    
+
+    // Improved confidence calculation based on path completeness
+    const pathCompleteness = path.length > 0 ? path.filter(p => p.includes('=')).length / path.length : 0;
+    const confidence = Math.max(0.3, Math.min(0.95, pathCompleteness * 0.8 + 0.2));
+
     return {
       prediction,
       confidence,
       path
     };
+  }
+
+  /**
+   * Get contextual default prediction based on data analysis
+   */
+  private getContextualDefault(data: TrainingData): string {
+    // Simple default based on stock level - less aggressive than before
+    const stokSekarang = Number(data.StokSekarang || data.stok_sekarang || 50);
+
+    // Use a simple threshold: if stock is below 60, assume restock needed
+    // This is a conservative default that doesn't override the tree logic too much
+    return stokSekarang < 60 ? 'PerluRestock' : 'Aman';
   }
 
   /**

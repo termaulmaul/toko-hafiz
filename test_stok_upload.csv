@@ -1,0 +1,2 @@
+kode_barang,nama_barang,kategori,harga_satuan,stok_awal,stok_minimum,stok_maksimum,status_barang,created_at
+TEST001,Test Product,Minuman,5000,150,50,300,Aktif,2025-01-01

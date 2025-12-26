@@ -204,10 +204,10 @@ const DataMining = () => {
                 </div>
                 <div className="mt-3 p-3 bg-primary/5 rounded-lg">
                   <p className="text-xs text-muted-foreground">
-                    <strong>Data Training:</strong> 21 records dari database MySQL XAMPP<br/>
-                    <strong>Data Testing:</strong> 7 records untuk validasi model<br/>
-                    <strong>Target Classes:</strong> Rendah (11), Cukup (13), Berlebih (4)<br/>
-                    <strong>Database:</strong> localhost:3306/db_toko_hafiz
+                    <strong>Data Training:</strong> {statistics?.training_records || 0} records (balanced)<br/>
+                    <strong>Data Testing:</strong> {statistics?.testing_records || 0} records untuk validasi<br/>
+                    <strong>Target Classes:</strong> Rendah, Cukup, Berlebih<br/>
+                    <strong>Database:</strong> localhost:3306/db_toko_hafiz_simple
                   </p>
                 </div>
               </>

@@ -87,7 +87,7 @@ export class PredictionEngine {
       throw new Error(`Model dengan ID ${modelId} tidak ditemukan.`);
     }
 
-    // Prepare data for prediction
+    // Prepare data for prediction - standardize field names
     const data: TrainingData = {
       StokSekarang: request.stokSekarang,
       PenjualanRata2: request.penjualanRata2,

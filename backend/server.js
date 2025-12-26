@@ -64,12 +64,27 @@ app.use(
 // CSRF protection middleware
 const csrfProtection = csrf({ cookie: false });
 
-// Rate limiting (increased for development)
-const limiter = rateLimit({
+// Rate limiting - differentiated by operation type
+const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 500, // limit each IP to 500 requests per minute
+  max: 1000, // Higher limit for general operations
+  message: "Too many requests, please try again later."
 });
-app.use(limiter);
+
+const dataMiningLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 5, // Lower limit for compute-intensive data mining operations
+  message: "Data mining operations are rate limited. Please wait before trying again."
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 20, // Moderate limit for upload operations
+  message: "Upload operations are rate limited. Please wait before trying again."
+});
+
+// Apply general limiter by default
+app.use(generalLimiter);
 
 // Database configuration
 const dbConfig = {
@@ -989,7 +1004,7 @@ app.get("/api/data-stok/export", async (req, res) => {
 });
 
 // Upload CSV data
-app.post("/api/data/upload", upload.single("file"), async (req, res) => {
+app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return sendResponse(res, false, null, "No file uploaded", 400);
@@ -1013,22 +1028,55 @@ app.post("/api/data/upload", upload.single("file"), async (req, res) => {
       );
     }
 
+    // Check upload type - detect from CSV content
+    let uploadType = 'latih'; // default
+
+    if (results.length > 0) {
+      const firstRow = results[0];
+      // Check if first row contains data_stok headers (csv-parser creates numeric keys)
+      const rowValues = Object.values(firstRow);
+      if (rowValues.includes('kode_barang') && rowValues.includes('nama_barang')) {
+        uploadType = 'stok';
+      }
+    }
+
     try {
-      // Process each row
-      for (const row of results) {
+      // Process each row (skip header row if detected)
+      let startIndex = 0;
+      if (results.length > 0 && results[0]['0'] === 'kode_barang') {
+        startIndex = 1; // Skip header row
+      }
+
+      for (let i = startIndex; i < results.length; i++) {
+        const row = results[i];
         try {
-          // Validate required fields with strict checking
-          const requiredFields = [
-            "jenis_barang",
-            "kategori",
-            "harga",
-            "bulan",
-            "jumlah_penjualan",
-            "stok",
-            "status",
-            "status_penjualan",
-            "status_stok",
-          ];
+          // Validate required fields based on detected type
+          let requiredFields = [];
+          if (uploadType === 'stok') {
+            requiredFields = [
+              "kode_barang",
+              "nama_barang",
+              "kategori",
+              "harga_satuan",
+              "stok_awal",
+              "stok_minimum",
+              "stok_maksimum",
+              "status_barang",
+            ];
+          } else {
+            requiredFields = [
+              "jenis_barang",
+              "kategori",
+              "harga",
+              "bulan",
+              "jumlah_penjualan",
+              "stok",
+              "status",
+              "status_penjualan",
+              "status_stok",
+            ];
+          }
+          console.log('Upload type:', uploadType, 'Required fields:', requiredFields);
           const missingFields = [];
 
           for (const field of requiredFields) {
@@ -1051,79 +1099,140 @@ app.post("/api/data/upload", upload.single("file"), async (req, res) => {
             continue;
           }
 
-          // Validate numeric fields
-          if (isNaN(parseInt(row.harga)) || parseInt(row.harga) <= 0) {
-            errors.push(`Row ${importedCount + 1}: Invalid harga value`);
-            continue;
+          // Validate fields based on type
+          if (uploadType === 'stok') {
+            // Validate numeric fields for data_stok
+            const hargaSatuan = parseFloat(row.harga_satuan);
+            const stokAwal = parseInt(row.stok_awal);
+            const stokMinimum = parseInt(row.stok_minimum);
+            const stokMaksimum = parseInt(row.stok_maksimum);
+
+            if (isNaN(hargaSatuan) || hargaSatuan <= 0) {
+              errors.push(`Row ${importedCount + 1}: Invalid harga_satuan value`);
+              continue;
+            }
+
+            if (isNaN(stokAwal) || stokAwal < 0) {
+              errors.push(`Row ${importedCount + 1}: Invalid stok_awal value`);
+              continue;
+            }
+
+            if (isNaN(stokMinimum) || stokMinimum < 0) {
+              errors.push(`Row ${importedCount + 1}: Invalid stok_minimum value`);
+              continue;
+            }
+
+            if (isNaN(stokMaksimum) || stokMaksimum <= stokMinimum) {
+              errors.push(`Row ${importedCount + 1}: Invalid stok_maksimum value (must be > stok_minimum)`);
+              continue;
+            }
+
+            // Validate status_barang
+            const validStatusBarang = ["Aktif", "Tidak Aktif"];
+            if (!validStatusBarang.includes(row.status_barang)) {
+              errors.push(
+                `Row ${
+                  importedCount + 1
+                }: Invalid status_barang value. Must be: ${validStatusBarang.join(" or ")}`
+              );
+              continue;
+            }
+          } else {
+            // Validate numeric fields for data_latih
+            if (isNaN(parseInt(row.harga)) || parseInt(row.harga) <= 0) {
+              errors.push(`Row ${importedCount + 1}: Invalid harga value`);
+              continue;
+            }
+
+            if (
+              isNaN(parseInt(row.jumlah_penjualan)) ||
+              parseInt(row.jumlah_penjualan) < 0
+            ) {
+              errors.push(
+                `Row ${importedCount + 1}: Invalid jumlah_penjualan value`
+              );
+              continue;
+            }
+
+            if (isNaN(parseInt(row.stok)) || parseInt(row.stok) < 0) {
+              errors.push(`Row ${importedCount + 1}: Invalid stok value`);
+              continue;
+            }
+
+            // Validate enum values for data_latih
+            const validStatus = ["eceran", "grosir"];
+            if (!validStatus.includes(row.status)) {
+              errors.push(
+                `Row ${
+                  importedCount + 1
+                }: Invalid status value. Must be: ${validStatus.join(" or ")}`
+              );
+              continue;
+            }
+
+            const validStatusPenjualan = ["Tinggi", "Sedang", "Rendah"];
+            if (!validStatusPenjualan.includes(row.status_penjualan)) {
+              errors.push(
+                `Row ${
+                  importedCount + 1
+                }: Invalid status_penjualan value. Must be: ${validStatusPenjualan.join(
+                  " or "
+                )}`
+              );
+              continue;
+            }
+
+            const validStatusStok = ["Rendah", "Cukup", "Berlebih"];
+            if (!validStatusStok.includes(row.status_stok)) {
+              errors.push(
+                `Row ${
+                  importedCount + 1
+                }: Invalid status_stok value. Must be: ${validStatusStok.join(
+                  " or "
+                )}`
+              );
+              continue;
+            }
           }
 
-          if (
-            isNaN(parseInt(row.jumlah_penjualan)) ||
-            parseInt(row.jumlah_penjualan) < 0
-          ) {
-            errors.push(
-              `Row ${importedCount + 1}: Invalid jumlah_penjualan value`
+          // Insert based on type
+          if (uploadType === 'stok') {
+            // Insert directly to data_stok
+            await pool.execute(
+              `INSERT INTO data_stok
+               (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                row.kode_barang,
+                row.nama_barang,
+                row.kategori,
+                parseFloat(row.harga_satuan),
+                parseInt(row.stok_awal),
+                parseInt(row.stok_minimum),
+                parseInt(row.stok_maksimum),
+                parseInt(row.stok_awal), // Set stok_sekarang to stok_awal
+                row.status_barang,
+              ]
             );
-            continue;
-          }
-
-          if (isNaN(parseInt(row.stok)) || parseInt(row.stok) < 0) {
-            errors.push(`Row ${importedCount + 1}: Invalid stok value`);
-            continue;
-          }
-
-          // Validate enum values
-          const validStatus = ["eceran", "grosir"];
-          if (!validStatus.includes(row.status)) {
-            errors.push(
-              `Row ${
-                importedCount + 1
-              }: Invalid status value. Must be: ${validStatus.join(" or ")}`
+          } else {
+            // Insert to data_unified (original logic)
+            await pool.execute(
+              `INSERT INTO data_unified
+               (jenis_barang, kategori, harga, bulan, jumlah_penjualan, stok, status, status_penjualan, status_stok)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                row.jenis_barang,
+                row.kategori,
+                parseInt(row.harga),
+                row.bulan,
+                parseInt(row.jumlah_penjualan),
+                parseInt(row.stok),
+                row.status,
+                row.status_penjualan,
+                row.status_stok,
+              ]
             );
-            continue;
           }
-
-          const validStatusPenjualan = ["Tinggi", "Sedang", "Rendah"];
-          if (!validStatusPenjualan.includes(row.status_penjualan)) {
-            errors.push(
-              `Row ${
-                importedCount + 1
-              }: Invalid status_penjualan value. Must be: ${validStatusPenjualan.join(
-                " or "
-              )}`
-            );
-            continue;
-          }
-
-          const validStatusStok = ["Rendah", "Cukup", "Berlebih"];
-          if (!validStatusStok.includes(row.status_stok)) {
-            errors.push(
-              `Row ${
-                importedCount + 1
-              }: Invalid status_stok value. Must be: ${validStatusStok.join(
-                " or "
-              )}`
-            );
-            continue;
-          }
-
-          // Insert into data_unified
-          await pool.execute(
-            `INSERT INTO data_unified
-             (jenis_barang, kategori, harga, bulan, jumlah_penjualan, stok, status, status_penjualan, status_stok)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              row.jenis_barang,
-              row.kategori,
-              parseInt(row.harga),
-              row.bulan,
-              parseInt(row.jumlah_penjualan),
-              parseInt(row.stok),
-              row.status,
-              row.status_penjualan,
-              row.status_stok,
-            ]
-          );
 
           // Auto-sync to data_stok: Insert or update inventory
           try {
@@ -1611,8 +1720,13 @@ class C45Algorithm {
 
   // Dapatkan majority class
   getMajorityClass(classes) {
+    const validClasses = classes.filter(cls => cls !== null && cls !== undefined && cls !== '');
+    if (validClasses.length === 0) {
+      return "Cukup"; // Default fallback
+    }
+
     const counts = {};
-    classes.forEach((cls) => {
+    validClasses.forEach((cls) => {
       counts[cls] = (counts[cls] || 0) + 1;
     });
 
@@ -1769,26 +1883,30 @@ class C45Algorithm {
     }
   }
 
-  // Generate rules dari decision tree
-  generateRules(tree, path = []) {
+  // Extract rules dari decision tree
+  extractRules(tree, path = []) {
     const rules = [];
 
     if (tree.type === "leaf") {
-      if (path.length > 0) {
-        rules.push({
-          rule_text: `IF ${path.join(" AND ")} THEN status_stok = ${
-            tree.label
-          }`,
-          predicted_class: tree.label,
-          confidence: tree.confidence || 0.8,
-        });
+      if (path.length > 0 && tree.label && typeof tree.label === 'string' && tree.label.trim()) {
+        const validPath = path.filter(p => p && typeof p === 'string' && p.trim());
+        if (validPath.length > 0) {
+          rules.push({
+            condition: validPath.join(" AND "),
+            result: tree.label.trim(),
+            confidence: tree.confidence || 0.8,
+          });
+        }
       }
       return rules;
     }
 
     Object.entries(tree.branches).forEach(([value, branch]) => {
-      const newPath = [...path, `${tree.attribute} = '${value}'`];
-      rules.push(...this.generateRules(branch, newPath));
+      if (tree.attribute && value !== null && value !== undefined && value !== '') {
+        const condition = `${tree.attribute} = '${String(value).replace(/'/g, "''")}'`;
+        const newPath = [...path, condition];
+        rules.push(...this.extractRules(branch, newPath));
+      }
     });
 
     return rules;
@@ -1796,7 +1914,7 @@ class C45Algorithm {
 }
 
 // Run data mining dengan C4.5 yang proper
-app.post("/api/data-mining/run", async (req, res) => {
+app.post("/api/data-mining/run", dataMiningLimiter, async (req, res) => {
   try {
     const { minSamples = 10, minGainRatio = 0.01, splitRatio = 0.7 } = req.body;
 
@@ -1847,18 +1965,18 @@ app.post("/api/data-mining/run", async (req, res) => {
     console.log(`🎯 Recall: ${(evaluation.recall * 100).toFixed(2)}%`);
     console.log(`🎯 F1-Score: ${(evaluation.f1_score * 100).toFixed(2)}%`);
 
-    // Generate rules
-    console.log("📝 Generating rules from decision tree...");
-    const rules = c45.generateRules(tree);
-    console.log(`📝 Generated ${rules.length} rules`);
+    // Extract rules
+    console.log("📝 Extracting rules from decision tree...");
+    const rules = c45.extractRules(tree);
+    console.log(`📝 Extracted ${rules.length} rules`);
 
     // Save model run to database
     console.log("💾 Saving model run to database...");
     const [result] = await pool.execute(
       `
       INSERT INTO model_runs
-      (algorithm, accuracy, \`precision\`, recall, f1_score, tree_structure, confusion_matrix, training_samples, test_samples)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (algorithm, accuracy, \`precision\`, recall, f1_score, tree_structure, confusion_matrix, rules_count, training_samples, test_samples)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         "C4.5",
@@ -1868,6 +1986,7 @@ app.post("/api/data-mining/run", async (req, res) => {
         evaluation.f1_score,
         JSON.stringify(tree),
         JSON.stringify(evaluation.confusionMatrix),
+        rules.length,
         trainingRows.length,
         testingRows.length,
       ]
@@ -1878,20 +1997,25 @@ app.post("/api/data-mining/run", async (req, res) => {
 
     // Save rules (bulk insert for performance)
     if (rules.length > 0) {
-      const ruleValues = rules.map((rule, index) => [
-        modelRunId,
-        index + 1, // Increment rule_number instead of always 1
-        rule.rule_text,
-        rule.predicted_class,
-        rule.confidence,
-        1,
-      ]);
+      const validRules = rules.filter(rule => rule.condition && rule.result);
+      if (validRules.length > 0) {
+        const ruleValues = validRules.map((rule, index) => [
+          modelRunId,
+          index + 1, // Increment rule_number instead of always 1
+          rule.condition,
+          rule.result,
+          rule.confidence,
+          1, // Support count (placeholder)
+        ]);
 
-      await pool.query(
-        "INSERT INTO model_rules (model_run_id, rule_number, condition_text, predicted_class, confidence, support_count) VALUES ?",
-        [ruleValues]
-      );
-      console.log(`📋 Saved ${rules.length} rules`);
+        await pool.query(
+          "INSERT INTO model_rules (model_run_id, rule_number, condition_text, predicted_class, confidence, support_count) VALUES ?",
+          [ruleValues]
+        );
+        console.log(`📋 Saved ${validRules.length} rules`);
+      } else {
+        console.log(`⚠️ No valid rules to save`);
+      }
     }
 
     // Generate predictions for test data (bulk insert for performance)

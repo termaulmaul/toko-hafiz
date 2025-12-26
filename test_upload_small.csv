@@ -1,0 +1,2 @@
+jenis_barang,kategori,harga,bulan,jumlah_penjualan,stok,status,status_penjualan,status_stok
+Test Product,Test Category,10000,Januari,50,25,eceran,Sedang,Cukup

@@ -9,6 +9,8 @@ import { StatsCard } from "@/components/ui/stats-card";
 import { useDataMining, useModelOperations } from "@/hooks/useDataMining";
 import { fetchDecisionTree } from "@/lib/api";
 import { toast } from "sonner";
+import axios from "axios";
+import HtmlDecisionTree from "@/components/HtmlDecisionTree";
 
 const DataMiningResults = () => {
   const navigate = useNavigate();
@@ -16,6 +18,18 @@ const DataMiningResults = () => {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [decisionTree, setDecisionTree] = useState<any>(null);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
+
+  // Prediction form state
+  const [predictionData, setPredictionData] = useState({
+    jenis_barang: '',
+    jumlah_penjualan: '',
+    stok: '',
+    status_penjualan: 'Tinggi'
+  });
+  const [predictionResult, setPredictionResult] = useState<any>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
 
   // Hooks untuk data mining
   const {
@@ -37,6 +51,275 @@ const DataMiningResults = () => {
       setSelectedModelId(modelRuns[0].id);
     }
   }, [modelRuns, selectedModelId]);
+
+  // Handle prediction
+  const handlePrediction = async () => {
+    if (!selectedModelId) {
+      toast.error("Model belum dipilih");
+      return;
+    }
+
+    if (!predictionData.jenis_barang || !predictionData.jumlah_penjualan || !predictionData.stok) {
+      toast.error("Semua field harus diisi");
+      return;
+    }
+
+    setIsPredicting(true);
+    try {
+      const response = await axios.post(`http://localhost:3000/api/predict/${selectedModelId}`, {
+        jenis_barang: predictionData.jenis_barang,
+        jumlah_penjualan: parseInt(predictionData.jumlah_penjualan),
+        stok: parseInt(predictionData.stok),
+        status_penjualan: predictionData.status_penjualan
+      });
+
+      setPredictionResult(response.data.data);
+      toast.success("Prediksi berhasil!");
+    } catch (error: any) {
+      toast.error("Gagal melakukan prediksi: " + error.message);
+    } finally {
+      setIsPredicting(false);
+    }
+  };
+
+  // Handle CSV export
+  const handleCSVExport = () => {
+    setIsExportingCSV(true);
+    try {
+      // Create CSV content with mining results
+      let csvContent = "Mining Results Export\n\n";
+
+      // Add model information
+      if (latestModel) {
+        csvContent += "Model Information\n";
+        csvContent += `Algorithm,${latestModel.algorithm}\n`;
+        csvContent += `Accuracy,${(latestModel.accuracy * 100).toFixed(2)}%\n`;
+        csvContent += `Precision,${(latestModel.precision * 100).toFixed(2)}%\n`;
+        csvContent += `Recall,${(latestModel.recall * 100).toFixed(2)}%\n`;
+        csvContent += `F1 Score,${(latestModel.f1_score * 100).toFixed(2)}%\n`;
+        csvContent += `Training Samples,${latestModel.training_samples}\n`;
+        csvContent += `Test Samples,${latestModel.test_samples}\n\n`;
+      }
+
+      // Add predictions data
+      if (modelPredictions && modelPredictions.length > 0) {
+        csvContent += "Predictions Data\n";
+        csvContent += "ID,Input Data,Predicted Class,Confidence,Actual Class,Is Correct\n";
+
+        modelPredictions.forEach((pred: any, index: number) => {
+          const inputData = typeof pred.input_data === 'string' ?
+            JSON.parse(pred.input_data) : pred.input_data || {};
+          csvContent += `${index + 1},"${JSON.stringify(inputData)}",${pred.predicted_class},${pred.confidence},${pred.actual_class},${pred.is_correct ? 'Yes' : 'No'}\n`;
+        });
+        csvContent += "\n";
+      }
+
+      // Add recommendations
+      if (recommendations && recommendations.length > 0) {
+        csvContent += "Recommendations\n";
+        csvContent += "Item,Current Stock,Prediction,Action,Priority,Reasoning\n";
+
+        recommendations.forEach((rec: any) => {
+          csvContent += `"${rec.item}",${rec.currentStock},"${rec.prediction}","${rec.action}","${rec.priority}","${rec.reasoning}"\n`;
+        });
+      }
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `mining-results-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("CSV berhasil diunduh!");
+    } catch (error) {
+      toast.error("Gagal export CSV");
+    } finally {
+      setIsExportingCSV(false);
+    }
+  };
+
+  // Handle PDF download
+  const handlePDFDownload = () => {
+    setIsDownloadingPDF(true);
+    try {
+      // Create a comprehensive printable version of the results
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Data Mining Results Report - ${new Date().toLocaleDateString()}</title>
+          <meta charset="UTF-8">
+          <style>
+            @page { margin: 1cm; }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              margin: 0;
+              padding: 20px;
+              line-height: 1.6;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #2563eb;
+              margin: 0;
+              font-size: 28px;
+            }
+            .header p {
+              margin: 5px 0;
+              color: #666;
+            }
+            .section {
+              margin-bottom: 30px;
+              page-break-inside: avoid;
+            }
+            .section h2 {
+              color: #2563eb;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 5px;
+              margin-bottom: 15px;
+              font-size: 20px;
+            }
+            .metrics-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 15px;
+              margin: 20px 0;
+            }
+            .metric-card {
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 15px;
+              background: #f9fafb;
+              text-align: center;
+            }
+            .metric-value {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+              display: block;
+            }
+            .metric-label {
+              font-size: 14px;
+              color: #666;
+              margin-top: 5px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 15px 0;
+              font-size: 12px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f3f4f6;
+              font-weight: 600;
+              color: #374151;
+            }
+            tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            .confusion-matrix {
+              max-width: 400px;
+              margin: 0 auto;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 12px;
+              font-size: 11px;
+              font-weight: 500;
+            }
+            .status-rendah { background: #fef2f2; color: #dc2626; }
+            .status-cukup { background: #f0fdf4; color: #16a34a; }
+            .status-berlebih { background: #fefce8; color: #ca8a04; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Data Mining Results Report</h1>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+            <p>Algorithm: C4.5 Decision Tree | Model ID: ${selectedModelId || 'N/A'}</p>
+          </div>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Algorithm:</strong> ${latestModel?.algorithm || 'C4.5'}</p>
+
+          <h2>Model Performance</h2>
+          <div class="metrics">
+            <div class="metric">
+              <strong>Accuracy:</strong> ${(latestModel?.accuracy * 100 || 0).toFixed(1)}%
+            </div>
+            <div class="metric">
+              <strong>Precision:</strong> ${(latestModel?.precision * 100 || 0).toFixed(1)}%
+            </div>
+            <div class="metric">
+              <strong>Recall:</strong> ${(latestModel?.recall * 100 || 0).toFixed(1)}%
+            </div>
+            <div class="metric">
+              <strong>F1 Score:</strong> ${(latestModel?.f1_score * 100 || 0).toFixed(1)}%
+            </div>
+          </div>
+
+          <h2>Recommendations</h2>
+          <table>
+            <tr>
+              <th>Item</th>
+              <th>Current Stock</th>
+              <th>Prediction</th>
+              <th>Action</th>
+              <th>Priority</th>
+            </tr>
+            ${recommendations?.map((rec: any) => `
+              <tr>
+                <td>${rec.item}</td>
+                <td>${rec.currentStock}</td>
+                <td>${rec.prediction}</td>
+                <td>${rec.action}</td>
+                <td>${rec.priority}</td>
+              </tr>
+            `).join('') || ''}
+          </table>
+        </body>
+        </html>
+      `;
+
+      // Create downloadable HTML file
+      const blob = new Blob([printContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `data-mining-results-${new Date().toISOString().split('T')[0]}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("File HTML berhasil didownload. Buka file dan print ke PDF.");
+    } catch (error) {
+      toast.error("Gagal membuat PDF");
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
 
   // Load decision tree visualization
   useEffect(() => {
@@ -103,7 +386,7 @@ const DataMiningResults = () => {
     
     modelPredictions.forEach(pred => {
       // Parse input_data jika berupa JSON string
-      let inputData = {};
+      let inputData: any = {};
       try {
         inputData = typeof pred.input_data === 'string' ? JSON.parse(pred.input_data) : pred.input_data || {};
       } catch (e) {
@@ -286,41 +569,109 @@ const DataMiningResults = () => {
           <Card className="p-6">
             <h3 className="font-semibold text-lg mb-4">Prediksi Real-time</h3>
             <div className="space-y-4">
+              {/* Model Selection */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold mb-2">Pilih Model</h4>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={selectedModelId || ''}
+                  onChange={(e) => setSelectedModelId(Number(e.target.value))}
+                >
+                  <option value="">Pilih Model...</option>
+                  {modelRuns?.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      Model {model.id} - {model.algorithm} ({(model.accuracy * 100).toFixed(1)}% accuracy)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
                 <h4 className="font-semibold mb-2">Test Prediksi</h4>
                 <p className="text-sm text-muted-foreground mb-4">
                   Masukkan data untuk prediksi status stok:
                 </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Jenis Barang</label>
-                    <input type="text" className="w-full p-2 border rounded" placeholder="Contoh: Aqua 600ml" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Jumlah Penjualan</label>
-                    <input type="number" className="w-full p-2 border rounded" placeholder="120" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Stok</label>
-                    <input type="number" className="w-full p-2 border rounded" placeholder="45" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Status Penjualan</label>
-                    <select className="w-full p-2 border rounded">
-                      <option value="Tinggi">Tinggi</option>
-                      <option value="Sedang">Sedang</option>
-                      <option value="Rendah">Rendah</option>
-                    </select>
-                  </div>
-                </div>
-                <Button className="mt-4 w-full">Prediksi Status Stok</Button>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div>
+                     <label className="text-xs text-muted-foreground">Jenis Barang</label>
+                     <input
+                       type="text"
+                       className="w-full p-2 border rounded"
+                       placeholder="Contoh: Aqua 600ml"
+                       value={predictionData.jenis_barang}
+                       onChange={(e) => setPredictionData({...predictionData, jenis_barang: e.target.value})}
+                     />
+                   </div>
+                   <div>
+                     <label className="text-xs text-muted-foreground">Jumlah Penjualan</label>
+                     <input
+                       type="number"
+                       className="w-full p-2 border rounded"
+                       placeholder="120"
+                       value={predictionData.jumlah_penjualan}
+                       onChange={(e) => setPredictionData({...predictionData, jumlah_penjualan: e.target.value})}
+                     />
+                   </div>
+                   <div>
+                     <label className="text-xs text-muted-foreground">Stok</label>
+                     <input
+                       type="number"
+                       className="w-full p-2 border rounded"
+                       placeholder="45"
+                       value={predictionData.stok}
+                       onChange={(e) => setPredictionData({...predictionData, stok: e.target.value})}
+                     />
+                   </div>
+                   <div>
+                     <label className="text-xs text-muted-foreground">Status Penjualan</label>
+                     <select
+                       className="w-full p-2 border rounded"
+                       value={predictionData.status_penjualan}
+                       onChange={(e) => setPredictionData({...predictionData, status_penjualan: e.target.value})}
+                     >
+                       <option value="Tinggi">Tinggi</option>
+                       <option value="Sedang">Sedang</option>
+                       <option value="Rendah">Rendah</option>
+                     </select>
+                   </div>
+                 </div>
+                 <Button
+                   className="mt-4 w-full"
+                   onClick={handlePrediction}
+                   disabled={isPredicting || !selectedModelId}
+                 >
+                   {isPredicting ? "Memproses..." : "Prediksi Status Stok"}
+                 </Button>
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <h4 className="font-semibold mb-2">Hasil Prediksi</h4>
-                <p className="text-sm text-muted-foreground">
-                  Prediksi akan muncul di sini setelah mengisi form di atas.
-                </p>
-              </div>
+               <div className="p-4 bg-green-50 rounded-lg">
+                 <h4 className="font-semibold mb-2">Hasil Prediksi</h4>
+                 {predictionResult ? (
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       <span className="font-medium">Status Stok Prediksi:</span>
+                       <Badge variant={
+                         predictionResult.prediction === 'Rendah' ? 'destructive' :
+                         predictionResult.prediction === 'Berlebih' ? 'secondary' : 'default'
+                       }>
+                         {predictionResult.prediction}
+                       </Badge>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="font-medium">Confidence:</span>
+                       <span className="text-blue-600 font-semibold">
+                         {(predictionResult.confidence * 100).toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="text-xs text-muted-foreground mt-2">
+                       Model Accuracy: {(predictionResult.model_accuracy * 100).toFixed(1)}%
+                     </div>
+                   </div>
+                 ) : (
+                   <p className="text-sm text-muted-foreground">
+                     Prediksi akan muncul di sini setelah mengisi form di atas.
+                   </p>
+                 )}
+               </div>
             </div>
           </Card>
         </TabsContent>
@@ -389,7 +740,7 @@ const DataMiningResults = () => {
                       </div>
                     </div>
                   ) : decisionTree ? (
-                    <DecisionTreeVisualization tree={decisionTree.tree} />
+                    <HtmlDecisionTree tree={decisionTree.tree} />
                   ) : (
                     <div className="bg-gradient-to-br from-primary/5 to-success/5 p-8 rounded-lg flex items-center justify-center min-h-[300px]">
                       <p className="text-muted-foreground">Tidak ada data decision tree tersedia</p>
@@ -534,130 +885,24 @@ const DataMiningResults = () => {
         </Button>
         <Button variant="outline" onClick={() => navigate("/data-latih")}>
           <FileText size={18} />
-          Lihat Data Latih
+          Lihat Data Training ({latestModel?.training_samples || 0} records)
         </Button>
-        <Button variant="outline">
+        <Button
+          variant="outline"
+          onClick={handleCSVExport}
+          disabled={isExportingCSV}
+        >
           <FileSpreadsheet size={18} />
-          Export CSV
+          {isExportingCSV ? "Exporting..." : "Export CSV"}
         </Button>
-        <Button variant="outline">
+        <Button
+          variant="outline"
+          onClick={handlePDFDownload}
+          disabled={isDownloadingPDF}
+        >
           <Download size={18} />
-          Download PDF
+          {isDownloadingPDF ? "Memproses..." : "Download PDF"}
         </Button>
-      </div>
-    </div>
-  );
-};
-
-// Decision Tree Visualization Component
-const DecisionTreeVisualization = ({ tree }: { tree: any }) => {
-  const renderNode = (node: any, level = 0, isRoot = false) => {
-    // Tentukan apakah ini adalah leaf node
-    const isLeaf = node.type === 'leaf' || !node.children || node.children.length === 0;
-    
-    if (isLeaf) {
-      return (
-        <div className="flex flex-col items-center">
-          <div className={`px-3 py-2 rounded-full text-sm font-semibold shadow-sm border-2 min-w-[80px] text-center ${
-            node.label === 'Rendah' ? 'bg-red-100 text-red-800 border-red-300' :
-            node.label === 'Cukup' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-            'bg-green-100 text-green-800 border-green-300'
-          }`}>
-            <span className="font-bold">{node.label}</span>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col items-center">
-        {/* Decision Node - Rectangular seperti gambar */}
-        <div className={`px-4 py-3 text-sm font-semibold shadow-sm border-2 min-w-[120px] text-center ${
-          isRoot ? 'bg-gray-200 text-gray-800 border-gray-400' : 'bg-blue-100 text-blue-800 border-blue-300'
-        }`} style={{ borderRadius: '8px' }}>
-          <div className="flex items-center justify-center gap-2">
-            {!isRoot && <TreePine className="h-4 w-4" />}
-            <span className="font-bold">{node.attribute}</span>
-          </div>
-          {node.gain_ratio && !isRoot && (
-            <div className="text-xs opacity-75 mt-1">
-              Gain: {node.gain_ratio.toFixed(4)}
-            </div>
-          )}
-        </div>
-        
-        {/* Vertical line dari node ke children - garis vertikal ke bawah */}
-        {node.children && node.children.length > 0 && (
-          <div className="w-0.5 h-6 bg-gray-400 mt-2"></div>
-        )}
-        
-        {/* Children dengan garis penghubung yang benar */}
-        {node.children && node.children.length > 0 && (
-          <div className="flex items-start justify-center gap-12 mt-2 relative">
-            {/* Garis horizontal utama yang menghubungkan semua children */}
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gray-400"></div>
-            
-            {node.children.map((child: any, index: number) => {
-              const totalChildren = node.children.length;
-              const isFirst = index === 0;
-              const isLast = index === totalChildren - 1;
-              
-              return (
-                <div key={child.id} className="flex flex-col items-center relative">
-                  {/* Garis vertikal dari garis horizontal ke child */}
-                  <div className="absolute -top-2 left-1/2 w-0.5 h-4 bg-gray-400 transform -translate-x-1/2"></div>
-                  
-                  {/* Edge Label - di atas garis vertikal */}
-                  {child.edgeLabel && (
-                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 font-medium bg-white px-2 py-1 rounded border shadow-sm whitespace-nowrap">
-                      {child.edgeLabel}
-                    </div>
-                  )}
-                  
-                  {/* Recursive render child */}
-                  <div className="pt-2">
-                    {renderNode(child, level + 1, false)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div className="bg-white border rounded-lg p-6 overflow-x-auto">
-      <div className="flex items-center gap-2 mb-4">
-        <TreePine className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold">Decision Tree Visualization</h4>
-      </div>
-      
-      <div className="space-y-2">
-        {renderNode(tree, 0, true)}
-      </div>
-      
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <h5 className="font-semibold text-sm mb-2">Legend:</h5>
-        <div className="flex flex-wrap gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-100 rounded"></div>
-            <span>Decision Node</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-100 rounded"></div>
-            <span>Rendah (Low Stock)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-100 rounded"></div>
-            <span>Cukup (Normal Stock)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-100 rounded"></div>
-            <span>Berlebih (High Stock)</span>
-          </div>
-        </div>
       </div>
     </div>
   );

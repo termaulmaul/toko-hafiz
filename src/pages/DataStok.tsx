@@ -94,18 +94,21 @@ const DataStok = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await axios.post('http://localhost:3000/api/data-stok/import', formData, {
+      // Use the working /api/data/upload endpoint with type parameter
+      formData.append('type', 'stok');
+
+      const response = await axios.post('http://localhost:3000/api/data/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      if (response.data.success) {
-        toast.success(`Data berhasil diimport: ${response.data.successCount} records`);
+      if (response.data.data && response.data.data.success) {
+        toast.success(`Data berhasil diimport: ${response.data.data.imported_count} records`);
         refetch();
         setSelectedFile(null);
       } else {
-        toast.error("Gagal import data: " + response.data.message);
+        toast.error("Gagal import data: " + (response.data.data?.message || response.data.message));
       }
     } catch (error: any) {
       toast.error("Error uploading file: " + error.message);
@@ -202,9 +205,14 @@ const DataStok = () => {
               <Upload size={16} />
               Upload CSV
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => window.open('/data/template_data_stok.csv', '_blank')}
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = '/data/template_data_stok.csv';
+                link.download = 'template_data_stok.csv';
+                link.click();
+              }}
               className="flex items-center gap-2"
             >
               <Download size={16} />

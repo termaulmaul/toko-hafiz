@@ -1,5 +1,6 @@
 import { Package, AlertTriangle, Grid3x3, DollarSign, TrendingUp, Database, BarChart } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/ui/stats-card";
 import { formatCurrency } from "@/lib/formatters";
 import { useQuery } from "@tanstack/react-query";
@@ -7,17 +8,17 @@ import api from "@/lib/api";
 
 const Dashboard = () => {
   // Fetch statistics from API
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const response = await api.get("/statistics");
+      const response = await api.get("/dashboard/stats");
       return response.data.data;
     },
   });
 
-  // Fetch recent data from data_stok
-  const { data: recentData, isLoading: recentLoading } = useQuery({
-    queryKey: ["dashboard-recent"],
+  // Fetch recent products from data-stok API
+  const { data: recentData, isLoading: recentLoading, error: recentError } = useQuery({
+    queryKey: ["dashboard-products"],
     queryFn: async () => {
       const response = await api.get("/data-stok?limit=5");
       return response.data.data || [];
@@ -25,17 +26,13 @@ const Dashboard = () => {
   });
 
   // Calculate stats from API data
-  const totalItems = statsData?.total_records || 0;
-  const trainingItems = statsData?.training_records || 0;
-  const testingItems = statsData?.testing_records || 0;
-  const unsplitItems = statsData?.unsplit_records || 0;
+  const totalItems = statsData?.total_data || 0;
+  const trainingItems = statsData?.training_data || 0;
+  const testingItems = statsData?.testing_data || 0;
+  const unsplitItems = statsData?.unsplit_data || 0;
   const modelRuns = statsData?.model_runs || 0;
-
-  // Mock low stock calculation (we'll need to add this to API later)
-  const lowStockCount = 2; // This should come from API
-
-  // Mock categories count (we'll need to add this to API later)
-  const categoriesCount = 8; // This should come from API
+  const lowStockCount = statsData?.low_stock || 0;
+  const categoriesCount = statsData?.categories || 0;
 
   // Mock total value (we'll need to add this to API later)
   const totalValue = 5390000;
@@ -77,19 +74,39 @@ const Dashboard = () => {
 
   // Format recent data for display
   const formattedRecentData = recentData?.slice(0, 5).map((item: any) => ({
-    kode: item.kode_barang || item.id,
-    nama: item.nama_barang || item.jenis_barang,
+    kode: item.id.toString(),
+    nama: item.nama_barang,
     kategori: item.kategori,
-    stok: item.stok_sekarang || item.stok,
-    status: item.status_barang || item.status_stok || "Cukup",
+    stok: item.stok_sekarang,
+    status: item.stok_sekarang < item.stok_minimum ? "Rendah" :
+            item.stok_sekarang > item.stok_maksimum ? "Berlebih" : "Cukup",
   })) || [];
 
-  if (statsLoading) {
+  if (statsLoading || recentLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Memuat dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (statsError || recentError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <AlertTriangle size={48} className="mx-auto mb-2" />
+            <p className="text-lg font-semibold">Gagal memuat data</p>
+            <p className="text-sm text-muted-foreground">
+              {statsError?.message || recentError?.message || "Terjadi kesalahan saat mengambil data"}
+            </p>
+          </div>
+          <Button onClick={() => window.location.reload()}>
+            Coba Lagi
+          </Button>
         </div>
       </div>
     );

@@ -1,0 +1,77 @@
+jenis_barang,kategori,harga,bulan,jumlah_penjualan,stok,status,status_penjualan,status_stok
+Beras Premium 5kg,Sembako,75000,Januari,56,23,eceran,Sedang,Rendah
+Beras Medium 5kg,Sembako,62000,Januari,81,17,eceran,Sedang,Rendah
+Minyak Goreng 2L,Sembako,45000,Januari,40,30,eceran,Sedang,Cukup
+Gula Pasir 1kg,Sembako,15000,Januari,117,26,eceran,Sedang,Rendah
+Garam Dapur 500g,Sembako,5000,Januari,203,388,grosir,Sedang,Berlebih
+Tepung Terigu 1kg,Sembako,12000,Januari,113,49,eceran,Sedang,Rendah
+Telur Ayam 1kg,Sembako,28000,Januari,93,95,eceran,Tinggi,Cukup
+Kopi Bubuk 200g,Sembako,25000,Januari,115,54,eceran,Sedang,Rendah
+Teh Celup 25s,Sembako,8000,Januari,326,525,grosir,Tinggi,Berlebih
+Susu Kental Manis 370g,Sembako,12000,Januari,98,38,eceran,Sedang,Rendah
+Mie Instan Goreng,Sembako,3000,Januari,238,431,grosir,Sedang,Berlebih
+Mie Instan Kuah,Sembako,2500,Januari,238,543,grosir,Sedang,Berlebih
+Kecap Manis 600ml,Sembako,18000,Januari,119,92,eceran,Sedang,Cukup
+Saus Sambal 340ml,Sembako,15000,Januari,116,26,eceran,Sedang,Rendah
+Aqua 600ml,Minuman,5000,Januari,120,50,eceran,Tinggi,Cukup
+Aqua 1.5L,Minuman,8000,Januari,85,75,eceran,Tinggi,Cukup
+Coca Cola 600ml,Minuman,6000,Januari,95,60,eceran,Tinggi,Cukup
+Sprite 600ml,Minuman,6000,Januari,78,55,eceran,Sedang,Cukup
+Teh Botol Sosro,Minuman,4000,Januari,150,120,eceran,Tinggi,Cukup
+Pocari Sweat 500ml,Minuman,7000,Januari,65,40,eceran,Sedang,Rendah
+Indomie Goreng,Makanan,3000,Januari,200,150,eceran,Tinggi,Cukup
+Indomie Soto,Makanan,3000,Januari,180,140,eceran,Tinggi,Cukup
+Sari Roti Tawar,Makanan,12000,Januari,45,80,eceran,Sedang,Cukup
+Sari Roti Coklat,Makanan,15000,Januari,35,60,eceran,Sedang,Cukup
+Biskuit Roma,Makanan,8000,Januari,90,100,eceran,Tinggi,Cukup
+Wafer Tango,Makanan,5000,Januari,120,90,eceran,Tinggi,Cukup
+Chitato,Makanan,12000,Januari,55,70,eceran,Sedang,Cukup
+Lays,Makanan,10000,Januari,70,85,eceran,Sedang,Cukup
+Rinso,Deterjen,15000,Januari,80,40,eceran,Sedang,Rendah
+Surf,Deterjen,16000,Januari,75,45,eceran,Sedang,Rendah
+Sunlight,Sabun,12000,Januari,60,30,eceran,Sedang,Rendah
+Lifebuoy,Sabun,8000,Januari,90,50,eceran,Tinggi,Cukup
+Pepsodent,Pasta Gigi,15000,Januari,40,25,eceran,Sedang,Rendah
+Close Up,Pasta Gigi,12000,Januari,55,35,eceran,Sedang,Cukup
+Shampoo Clear,Shampoo,25000,Januari,30,20,eceran,Rendah,Rendah
+Shampoo Sunsilk,Shampoo,22000,Januari,35,25,eceran,Rendah,Rendah
+Sikat Gigi,Sikat Gigi,5000,Januari,80,60,eceran,Tinggi,Cukup
+Sabun Cuci Piring,Sabun Cuci,18000,Januari,25,15,eceran,Rendah,Rendah
+Beras Premium 5kg,Sembako,75000,Februari,62,28,eceran,Sedang,Rendah
+Beras Medium 5kg,Sembako,62000,Februari,85,22,eceran,Sedang,Rendah
+Minyak Goreng 2L,Sembako,45000,Februari,45,35,eceran,Sedang,Cukup
+Gula Pasir 1kg,Sembako,15000,Februari,125,31,eceran,Sedang,Rendah
+Garam Dapur 500g,Sembako,5000,Februari,210,395,grosir,Sedang,Berlebih
+Tepung Terigu 1kg,Sembako,12000,Februari,118,52,eceran,Sedang,Rendah
+Telur Ayam 1kg,Sembako,28000,Februari,98,88,eceran,Tinggi,Cukup
+Kopi Bubuk 200g,Sembako,25000,Februari,122,58,eceran,Sedang,Rendah
+Teh Celup 25s,Sembako,8000,Februari,340,510,grosir,Tinggi,Berlebih
+Susu Kental Manis 370g,Sembako,12000,Februari,105,42,eceran,Sedang,Rendah
+Mie Instan Goreng,Sembako,3000,Februari,245,425,grosir,Sedang,Berlebih
+Mie Instan Kuah,Sembako,2500,Februari,245,535,grosir,Sedang,Berlebih
+Kecap Manis 600ml,Sembako,18000,Februari,125,88,eceran,Sedang,Cukup
+Saus Sambal 340ml,Sembako,15000,Februari,122,28,eceran,Sedang,Rendah
+Aqua 600ml,Minuman,5000,Februari,125,48,eceran,Tinggi,Cukup
+Aqua 1.5L,Minuman,8000,Februari,88,72,eceran,Tinggi,Cukup
+Coca Cola 600ml,Minuman,6000,Februari,100,58,eceran,Tinggi,Cukup
+Sprite 600ml,Minuman,6000,Februari,82,52,eceran,Sedang,Cukup
+Teh Botol Sosro,Minuman,4000,Februari,155,115,eceran,Tinggi,Cukup
+Pocari Sweat 500ml,Minuman,7000,Februari,68,38,eceran,Sedang,Rendah
+Indomie Goreng,Makanan,3000,Februari,210,145,eceran,Tinggi,Cukup
+Indomie Soto,Makanan,3000,Februari,190,135,eceran,Tinggi,Cukup
+Sari Roti Tawar,Makanan,12000,Februari,48,78,eceran,Sedang,Cukup
+Sari Roti Coklat,Makanan,15000,Februari,38,58,eceran,Sedang,Cukup
+Biskuit Roma,Makanan,8000,Februari,95,95,eceran,Tinggi,Cukup
+Wafer Tango,Makanan,5000,Februari,125,88,eceran,Tinggi,Cukup
+Chitato,Makanan,12000,Februari,58,68,eceran,Sedang,Cukup
+Lays,Makanan,10000,Februari,75,82,eceran,Sedang,Cukup
+Rinso,Deterjen,15000,Februari,85,38,eceran,Sedang,Rendah
+Surf,Deterjen,16000,Februari,78,42,eceran,Sedang,Rendah
+Sunlight,Sabun,12000,Februari,65,28,eceran,Sedang,Rendah
+Lifebuoy,Sabun,8000,Februari,95,48,eceran,Tinggi,Cukup
+Pepsodent,Pasta Gigi,15000,Februari,42,23,eceran,Sedang,Rendah
+Close Up,Pasta Gigi,12000,Februari,58,32,eceran,Sedang,Cukup
+Shampoo Clear,Shampoo,25000,Februari,32,18,eceran,Rendah,Rendah
+Shampoo Sunsilk,Shampoo,22000,Februari,38,22,eceran,Rendah,Rendah
+Sikat Gigi,Sikat Gigi,5000,Februari,85,58,eceran,Tinggi,Cukup
+Sabun Cuci Piring,Sabun Cuci,18000,Februari,28,12,eceran,Rendah,Rendah

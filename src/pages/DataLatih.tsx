@@ -14,21 +14,36 @@ const DataLatih = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch data latih from API
+  // Fetch training data from API
   const { data: trainingData = [], isLoading, error, refetch } = useQuery({
     queryKey: ['data-latih'],
     queryFn: async () => {
-      const response = await axios.get('http://localhost:3000/api/data/unified');
+      const response = await axios.get('http://localhost:3000/api/data-latih');
       return response.data.data || [];
     },
     refetchOnWindowFocus: false,
     initialData: [],
   });
 
+  // Add new training data mutation
+  const addMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await axios.post('http://localhost:3000/api/data-latih', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['data-latih'] });
+      toast.success("Data berhasil ditambahkan");
+    },
+    onError: (error) => {
+      toast.error("Gagal menambah data: " + error.message);
+    }
+  });
+
   // Delete single data mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await axios.delete(`http://localhost:3000/api/data-unified/${id}`);
+      const response = await axios.delete(`http://localhost:3000/api/data-latih/${id}`);
       return response.data;
     },
     onSuccess: () => {
@@ -43,13 +58,12 @@ const DataLatih = () => {
   // Reset all data mutation
   const resetMutation = useMutation({
     mutationFn: async () => {
-      const response = await axios.delete('http://localhost:3000/api/data-unified');
+      const response = await axios.delete('http://localhost:3000/api/data-latih');
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['data-latih'] });
-      queryClient.invalidateQueries({ queryKey: ['model-runs'] });
-      toast.success("Semua data berhasil direset");
+      toast.success("Data berhasil direset");
     },
     onError: (error) => {
       toast.error("Gagal reset data: " + error.message);
@@ -60,32 +74,33 @@ const DataLatih = () => {
   const filteredData = trainingData.filter((item: any) =>
     item.jenis_barang?.toLowerCase().includes(search.toLowerCase()) ||
     item.kategori?.toLowerCase().includes(search.toLowerCase()) ||
-    item.bulan?.toLowerCase().includes(search.toLowerCase())
+    item.bulan?.toLowerCase().includes(search.toLowerCase()) ||
+    item.status_stok?.toLowerCase().includes(search.toLowerCase())
   );
 
   // Calculate stats from real data
   const stats = [
-    { 
-      label: "Total Data", 
-      value: trainingData.length.toString(), 
+    {
+      label: "Total Data",
+      value: trainingData.length.toString(),
       color: "blue" as const,
       icon: Database
     },
-    { 
-      label: "Stok Rendah", 
-      value: trainingData.filter((item: any) => item.status_stok === 'Rendah').length.toString(), 
+    {
+      label: "Stok Rendah",
+      value: trainingData.filter((item: any) => item.status_stok === 'Rendah').length.toString(),
       color: "danger" as const,
       icon: AlertCircle
     },
-    { 
-      label: "Stok Cukup", 
-      value: trainingData.filter((item: any) => item.status_stok === 'Cukup').length.toString(), 
+    {
+      label: "Stok Cukup",
+      value: trainingData.filter((item: any) => item.status_stok === 'Cukup').length.toString(),
       color: "warning" as const,
       icon: Target
     },
-    { 
-      label: "Stok Berlebih", 
-      value: trainingData.filter((item: any) => item.status_stok === 'Berlebih').length.toString(), 
+    {
+      label: "Stok Berlebih",
+      value: trainingData.filter((item: any) => item.status_stok === 'Berlebih').length.toString(),
       color: "success" as const,
       icon: TrendingUp
     },
@@ -114,12 +129,12 @@ const DataLatih = () => {
         },
       });
 
-      if (response.data.success) {
-        toast.success(`Data berhasil diimport: ${response.data.importedCount} records`);
+      if (response.data.data && response.data.data.success) {
+        toast.success(`Data berhasil diimport: ${response.data.data.imported_count} records`);
         refetch();
         setSelectedFile(null);
       } else {
-        toast.error("Gagal import data: " + response.data.message);
+        toast.error("Gagal import data: " + (response.data.data?.message || response.data.message));
       }
     } catch (error: any) {
       toast.error("Error uploading file: " + error.message);
@@ -217,9 +232,14 @@ const DataLatih = () => {
               <Upload size={16} />
               Upload CSV
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => window.open('/data/template_data_latih.csv', '_blank')}
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = '/data/template_data_latih.csv';
+                link.download = 'template_data_latih.csv';
+                link.click();
+              }}
               className="flex items-center gap-2"
             >
               <Download size={16} />
@@ -280,59 +300,63 @@ const DataLatih = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-3 font-medium">ID</th>
-                <th className="text-left p-3 font-medium">Jenis Barang</th>
-                <th className="text-left p-3 font-medium">Kategori</th>
-                <th className="text-left p-3 font-medium">Bulan</th>
-                <th className="text-left p-3 font-medium">Harga</th>
-                <th className="text-left p-3 font-medium">Penjualan</th>
-                <th className="text-left p-3 font-medium">Stok</th>
-                <th className="text-left p-3 font-medium">Status Penjualan</th>
-                <th className="text-left p-3 font-medium">Status Stok</th>
-                <th className="text-left p-3 font-medium">Split</th>
-                <th className="text-left p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((item: any) => (
-                <tr key={item.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-sm">{item.id}</td>
-                  <td className="p-3 text-sm font-medium">{item.jenis_barang}</td>
-                  <td className="p-3 text-sm">{item.kategori}</td>
-                  <td className="p-3 text-sm">{item.bulan}</td>
-                  <td className="p-3 text-sm">Rp {item.harga?.toLocaleString()}</td>
-                  <td className="p-3 text-sm">{item.jumlah_penjualan}</td>
-                  <td className="p-3 text-sm">{item.stok}</td>
-                  <td className="p-3 text-sm">
-                    <Badge variant="outline">{item.status_penjualan}</Badge>
-                  </td>
-                  <td className="p-3 text-sm">
-                    <Badge variant={getStatusBadgeColor(item.status_stok)}>
-                      {item.status_stok}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-sm">
-                    <Badge variant={item.split_type === 'latih' ? 'default' : 'secondary'}>
-                      {item.split_type || 'Belum'}
-                    </Badge>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  </td>
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-3 font-medium">ID</th>
+                  <th className="text-left p-3 font-medium">Jenis Barang</th>
+                  <th className="text-left p-3 font-medium">Kategori</th>
+                  <th className="text-left p-3 font-medium">Harga</th>
+                  <th className="text-left p-3 font-medium">Stok</th>
+                  <th className="text-left p-3 font-medium">Penjualan</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Status Penjualan</th>
+                  <th className="text-left p-3 font-medium">Status Stok</th>
+                  <th className="text-left p-3 font-medium">Bulan</th>
+                  <th className="text-left p-3 font-medium">Split Type</th>
+                  <th className="text-left p-3 font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
+              <tbody>
+                {filteredData.map((item: any) => (
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 text-sm">{item.id}</td>
+                    <td className="p-3 text-sm font-medium">{item.jenis_barang}</td>
+                    <td className="p-3 text-sm">{item.kategori}</td>
+                    <td className="p-3 text-sm">Rp {item.harga?.toLocaleString()}</td>
+                    <td className="p-3 text-sm">{item.stok}</td>
+                    <td className="p-3 text-sm">{item.jumlah_penjualan}</td>
+                    <td className="p-3 text-sm">{item.status}</td>
+                    <td className="p-3 text-sm">
+                      <Badge variant={getStatusBadgeColor(item.status_penjualan)}>
+                        {item.status_penjualan}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-sm">
+                      <Badge variant={getStatusBadgeColor(item.status_stok)}>
+                        {item.status_stok}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-sm">{item.bulan}</td>
+                    <td className="p-3 text-sm">
+                      <Badge variant={item.split_type === 'latih' ? 'default' : 'secondary'}>
+                        {item.split_type === 'latih' ? 'Training' : item.split_type === 'uji' ? 'Testing' : 'Unsplit'}
+                      </Badge>
+                    </td>
+                   <td className="p-3">
+                     <div className="flex gap-2">
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => handleDelete(item.id)}
+                         disabled={deleteMutation.isPending}
+                       >
+                         <Trash2 size={14} />
+                       </Button>
+                     </div>
+                   </td>
+                 </tr>
+               ))}
+             </tbody>
           </table>
           
           {filteredData.length === 0 && !isLoading && (
