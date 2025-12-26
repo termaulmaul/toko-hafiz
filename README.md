@@ -121,9 +121,41 @@ Membantu Toko Hafiz dalam:
 ### Testing & Tools:
 - 📦 Yarn/NPM
 - 🔧 Git
-- 🗃️ XAMPP (local MySQL)
+- 🗃️ XAMPP or Laragon (local MySQL)
 - 🔥 Custom stress testing suite
 - 📊 Performance benchmarking tools
+
+---
+
+## 🖥️ Supported Development Environments
+
+This project supports multiple local development environments for maximum compatibility:
+
+### Windows
+- **XAMPP** (https://www.apachefriends.org/)
+  - Auto-detected at: `C:\xampp\mysql\bin\mysql.exe`
+  - phpMyAdmin access via XAMPP Control Panel
+
+- **Laragon** (https://laragon.org/)
+  - Auto-detected in: `C:\laragon\bin\mysql\*\bin\mysql.exe`
+  - phpMyAdmin access via Laragon menu
+  - Supports MySQL 8.0.x, 8.1.x, 8.2.x
+
+### macOS
+- **XAMPP** (https://www.apachefriends.org/)
+  - MySQL at: `/Applications/XAMPP/xamppfiles/bin/mysql`
+  - phpMyAdmin via XAMPP Control Panel
+
+### Linux
+- **Native MySQL** or **XAMPP**
+  - System package managers (apt, yum, etc.)
+  - Or XAMPP for Linux
+
+### Auto-Detection
+The setup scripts automatically detect your environment:
+- ✅ Windows: XAMPP vs Laragon
+- ✅ macOS/Linux: XAMPP vs native MySQL
+- ✅ No manual configuration needed
 
 ---
 
@@ -136,8 +168,11 @@ Membantu Toko Hafiz dalam:
 REM Check Node.js
 node --version  REM v18.0.0+
 
-REM Check if XAMPP MySQL is available
-REM XAMPP should be installed at C:\xampp
+REM Choose your local development environment:
+REM Option 1: XAMPP (https://www.apachefriends.org/)
+REM Option 2: Laragon (https://laragon.org/)
+
+REM Both are auto-detected by the setup scripts
 ```
 
 **macOS/Linux:**
@@ -189,16 +224,17 @@ cd .. && yarn install
 
 **Metode 1: Otomatis dengan Script (PALING MUDAH)**
 ```bash
-# Jalankan setup otomatis (RECOMMENDED)
+# Jalankan setup otomatis (RECOMMENDED) - Auto-detects XAMPP/Laragon
 yarn backend:setup
 
 # Atau manual:
-./scripts/setup-database.sh
+./scripts/setup-database.sh  # macOS/Linux
+scripts\setup-database.bat  # Windows
 ```
 
 **Metode 2: Import SQL File Manual**
 
-**Windows:**
+**Windows (XAMPP):**
 ```cmd
 REM 1. Start XAMPP MySQL (klik "Start" pada MySQL di XAMPP Control Panel)
 
@@ -208,6 +244,18 @@ C:\xampp\mysql\bin\mysql.exe -u root < database/db_toko_hafiz_complete.sql
 
 REM 3. Verify database berhasil dibuat:
 C:\xampp\mysql\bin\mysql.exe -u root -e "USE db_toko_hafiz; SHOW TABLES;"
+```
+
+**Windows (Laragon):**
+```cmd
+REM 1. Start Laragon (klik "Start All" di Laragon interface)
+
+REM 2. Buka Command Prompt dan jalankan:
+cd toko-hafiz
+C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe -u root < database/db_toko_hafiz_complete.sql
+
+REM 3. Verify database berhasil dibuat:
+C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe -u root -e "USE db_toko_hafiz; SHOW TABLES;"
 ```
 
 **macOS/Linux:**
@@ -226,8 +274,15 @@ mysql -u root -p -e "USE db_toko_hafiz; SHOW TABLES;"
 
 **Metode 3: Import via phpMyAdmin (GUI)**
 ```
+XAMPP:
 1. Buka XAMPP Control Panel
 2. Klik "Admin" pada MySQL → phpMyAdmin terbuka
+
+Laragon:
+1. Buka Laragon
+2. Klik menu "Database" → phpMyAdmin terbuka
+
+Common steps:
 3. Klik tab "Import"
 4. Klik "Choose File" → pilih: database/db_toko_hafiz_complete.sql
 5. Scroll ke bawah, klik "Import"
@@ -666,6 +721,32 @@ Detailed documentation available in `/docs`:
 
 ### Problem: Database Connection Failed
 **Solution**:
+
+**Windows (XAMPP):**
+```cmd
+REM Check MySQL is running
+tasklist /FI "IMAGENAME eq mysqld.exe"
+
+REM Check credentials in backend/.env
+type backend\.env
+
+REM Test connection
+C:\xampp\mysql\bin\mysql.exe -u root -e "SHOW DATABASES;"
+```
+
+**Windows (Laragon):**
+```cmd
+REM Check MySQL is running
+tasklist /FI "IMAGENAME eq mysqld.exe"
+
+REM Check credentials in backend/.env
+type backend\.env
+
+REM Test connection (adjust path based on your Laragon MySQL version)
+C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe -u root -e "SHOW DATABASES;"
+```
+
+**macOS/Linux:**
 ```bash
 # Check MySQL is running
 ps aux | grep mysql
