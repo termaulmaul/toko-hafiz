@@ -23,9 +23,9 @@ fi
 
 echo "✅ MySQL connection OK"
 
-# Buat database dan tabel
-echo "📊 Creating database and tables..."
-/Applications/XAMPP/bin/mysql -u root < backend/fix-database.sql
+# Buat database dan tabel dengan data lengkap
+echo "📊 Creating database and tables with complete data..."
+/Applications/XAMPP/bin/mysql -u root < database/db_toko_hafiz_complete.sql
 
 if [ $? -eq 0 ]; then
     echo "✅ Database setup completed successfully!"
