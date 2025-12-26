@@ -74,7 +74,15 @@ if %ERRORLEVEL% EQU 0 (
     "%MYSQL_PATH%" -u root -e "USE db_toko_hafiz; SELECT COUNT(*) as total_data FROM data_unified; SELECT COUNT(*) as training_data FROM data_unified WHERE split_type = 'latih'; SELECT COUNT(*) as testing_data FROM data_unified WHERE split_type = 'uji';"
 ) else (
     echo ❌ Database setup failed!
-    echo 💡 Try running as Administrator or check MySQL permissions
+    echo.
+    echo 💡 Possible solutions:
+    echo    1. Run Command Prompt as Administrator
+    echo    2. Check MySQL service is running
+    echo    3. Verify MySQL root user has permissions
+    echo    4. Try: "%MYSQL_PATH%" --version
+    echo.
+    echo Current MySQL path: %MYSQL_PATH%
+    echo.
     pause
     exit /b 1
 )
