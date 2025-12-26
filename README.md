@@ -130,15 +130,41 @@ Membantu Toko Hafiz dalam:
 ## 🚀 Quick Start
 
 ### Prerequisites:
+
+**Windows:**
+```cmd
+REM Check Node.js
+node --version  REM v18.0.0+
+
+REM Check if XAMPP MySQL is available
+REM XAMPP should be installed at C:\xampp
+```
+
+**macOS/Linux:**
 ```bash
 # Check Node.js
 node --version  # v18.0.0+
 
 # Check MySQL
 mysql --version # 8.0+
+```
 
-# Install Yarn (optional)
-npm install -g yarn
+### Installation:
+
+#### 1. Clone Repository
+```bash
+git clone https://github.com/termaulmaul/toko-hafiz.git
+cd toko-hafiz
+```
+
+#### 2. Install Dependencies
+```bash
+# Install all dependencies (frontend + backend) - auto-detects OS
+yarn install
+
+# Or install separately
+yarn backend:install  # Backend dependencies
+yarn install          # Frontend dependencies
 ```
 
 ### Installation:
@@ -171,10 +197,24 @@ yarn backend:setup
 ```
 
 **Metode 2: Import SQL File Manual**
+
+**Windows:**
+```cmd
+REM 1. Start XAMPP MySQL (klik "Start" pada MySQL di XAMPP Control Panel)
+
+REM 2. Buka Command Prompt dan jalankan:
+cd toko-hafiz
+C:\xampp\mysql\bin\mysql.exe -u root < database/db_toko_hafiz_complete.sql
+
+REM 3. Verify database berhasil dibuat:
+C:\xampp\mysql\bin\mysql.exe -u root -e "USE db_toko_hafiz; SHOW TABLES;"
+```
+
+**macOS/Linux:**
 ```bash
 # 1. Start XAMPP MySQL (klik "Start" pada MySQL di XAMPP Control Panel)
 
-# 2. Buka Terminal/CMD dan jalankan:
+# 2. Buka Terminal dan jalankan:
 cd toko-hafiz
 mysql -u root -p < database/db_toko_hafiz_complete.sql
 
@@ -220,21 +260,36 @@ EOF
 ```
 
 #### 5. Start Services
-```bash
-# Option 1: Start both services concurrently
-yarn dev
 
-# Option 2: Start separately
+**Otomatis (RECOMMENDED):**
+```bash
+# Start both services concurrently (auto-detects OS)
+yarn dev
+```
+
+**Manual Start:**
+
+**Windows:**
+```cmd
+REM Terminal 1: Backend
+yarn backend:start
+
+REM Terminal 2: Frontend
+yarn frontend:start
+```
+
+**macOS/Linux:**
+```bash
 # Terminal 1: Backend
-cd backend && node server.js
+yarn backend:start
 
 # Terminal 2: Frontend
-yarn run dev
+yarn frontend:start
 ```
 
 #### 6. Access Application
 ```
-Frontend: http://localhost:5173
+Frontend: http://localhost:8080
 Backend API: http://localhost:3000/api
 API Test: http://localhost:3000/api/database/test
 ```
@@ -548,7 +603,7 @@ node scripts/generate-dummy-data.cjs 5000
 
 #### 2. Stress Testing
 ```bash
-# Run comprehensive API stress tests
+# Run comprehensive API stress tests (Windows/macOS compatible)
 node scripts/stress-test.cjs
 ```
 
@@ -566,7 +621,7 @@ node scripts/stress-test.cjs
 
 #### 3. Model Benchmarking
 ```bash
-# Benchmark model with different configurations
+# Benchmark model with different configurations (Windows/macOS compatible)
 node scripts/benchmark-model.cjs
 ```
 
