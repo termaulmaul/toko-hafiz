@@ -14,7 +14,6 @@
     "preview": "vite preview",
     "backend:setup": "node scripts/run-script.js setup-database",
     "backend:start": "node scripts/run-script.js start-backend",
-    "dev": "concurrently \"yarn backend:start\" \"yarn frontend:start\"",
     "backend:install": "cd backend && npm install",
     "setup": "yarn install && yarn backend:install && yarn backend:setup",
     "figma:build": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output",
