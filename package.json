@@ -18,7 +18,7 @@
     "setup": "yarn install && yarn backend:install && yarn backend:setup",
     "figma:build": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output",
     "figma:publish": "figma connect publish",
-    "figma:parse": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output", 
+    "figma:parse": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output",
     "figma:dev": "figma connect parse figma-connectors/toko-hafiz-working.tsx --outDir figma-output --verbose"
   },
   "dependencies": {
@@ -58,6 +58,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "html2pdf.js": "^0.12.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "mysql2": "^3.15.2",
