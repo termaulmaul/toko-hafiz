@@ -1,0 +1,2 @@
+kode_barang,nama_barang,kategori,harga_satuan,stok_awal,stok_minimum,stok_maksimum,status_barang
+TEST001,Test Product,Test Category,10000,100,20,200,Aktif

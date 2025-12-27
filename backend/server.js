@@ -147,7 +147,7 @@ app.get("/api/database/test", async (req, res) => {
     const connection = await pool.getConnection();
     await connection.ping();
     connection.release();
-    sendResponse(res, true, true, "Database connected successfully");
+    sendResponse(res, true, true, "Database connected successfully - UPDATED");
   } catch (error) {
     handleError(res, error, "Database connection failed");
   }
@@ -1003,9 +1003,292 @@ app.get("/api/data-stok/export", async (req, res) => {
   }
 });
 
-// Upload CSV data
+
+
+// Validate CSV template for stok
+app.post("/api/data/validate-stok-template", uploadLimiter, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendResponse(res, false, null, "No file uploaded", 400);
+    }
+
+    // Use same CSV parsing as upload
+    let results = [];
+    try {
+      results = await validateCSVContent(req.file.path);
+    } catch (validationError) {
+      deleteUploadedFile(req.file.path);
+      return sendResponse(res, false, null, `CSV validation failed: ${validationError.message}`, 400);
+    }
+
+    // Expected format for stok
+    const expectedHeaders = ["kode_barang", "nama_barang", "kategori", "harga_satuan", "stok_awal", "stok_minimum", "stok_maksimum", "status_barang"];
+    const validationResults = {
+      isValid: true,
+      totalRows: results.length,
+      dataRows: 0,
+      issues: [],
+      warnings: [],
+      summary: {}
+    };
+
+    // Check headers - since parser has headers: false, check if first row looks like headers
+    let startIndex = 0;
+    if (results.length > 0) {
+      const firstRow = results[0];
+      // Check if first row contains header values
+      const looksLikeHeaders = firstRow['0'] === 'kode_barang' && firstRow['1'] === 'nama_barang';
+
+      if (looksLikeHeaders) {
+        startIndex = 1;
+        validationResults.dataRows = results.length - 1;
+      } else {
+        // Assume no headers, all rows are data
+        validationResults.dataRows = results.length;
+      }
+    }
+
+    // Validate data rows
+    const processedRows = [];
+    for (let i = startIndex; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 1;
+      const rowValidation = {
+        rowNumber,
+        isValid: true,
+        issues: [],
+        data: {}
+      };
+
+      // Map fields using numeric indices
+      const mappedRow = {};
+      expectedHeaders.forEach((header, index) => {
+        mappedRow[header] = row[index] || '';
+      });
+
+      // Validate each field
+      expectedHeaders.forEach(header => {
+        const value = mappedRow[header];
+
+        if (!value || value.toString().trim() === '') {
+          rowValidation.isValid = false;
+          rowValidation.issues.push(`Missing ${header}`);
+        } else {
+          // Type-specific validation
+          switch (header) {
+            case 'harga_satuan':
+            case 'stok_awal':
+            case 'stok_minimum':
+            case 'stok_maksimum':
+              const numValue = parseFloat(value);
+              if (isNaN(numValue) || numValue < 0) {
+                rowValidation.isValid = false;
+                rowValidation.issues.push(`Invalid ${header}: must be a positive number`);
+              }
+              break;
+            case 'status_barang':
+              const validStatuses = ['Aktif', 'Tidak Aktif'];
+              if (!validStatuses.includes(value)) {
+                rowValidation.issues.push(`Invalid ${header}: must be 'Aktif' or 'Tidak Aktif'`);
+              }
+              break;
+          }
+        }
+
+        rowValidation.data[header] = value;
+      });
+
+      // Additional business logic validation
+      if (rowValidation.isValid) {
+        const stokMin = parseInt(mappedRow.stok_minimum);
+        const stokMax = parseInt(mappedRow.stok_maksimum);
+
+        if (stokMax <= stokMin) {
+          rowValidation.issues.push("stok_maksimum must be greater than stok_minimum");
+        }
+      }
+
+      if (!rowValidation.isValid) {
+        validationResults.isValid = false;
+      }
+
+      if (rowValidation.issues.length > 0) {
+        validationResults.issues.push(`Row ${rowNumber}: ${rowValidation.issues.join(', ')}`);
+      }
+
+      processedRows.push(rowValidation);
+    }
+
+    // Generate summary
+    validationResults.summary = {
+      totalRows: validationResults.totalRows,
+      dataRows: validationResults.dataRows,
+      validRows: processedRows.filter(r => r.isValid).length,
+      invalidRows: processedRows.filter(r => r.isValid === false).length,
+      issuesCount: validationResults.issues.length
+    };
+
+    // Cleanup
+    deleteUploadedFile(req.file.path);
+
+    const statusCode = validationResults.isValid ? 200 : 400;
+    sendResponse(res, validationResults.isValid, validationResults, null, statusCode);
+
+  } catch (error) {
+    if (req.file) {
+      deleteUploadedFile(req.file.path);
+    }
+    handleError(res, error, "Failed to validate stok template");
+  }
+});
+
+// Upload CSV data for stok (separate endpoint)
+app.post("/api/data/upload-stok", uploadLimiter, upload.single("file"), async (req, res) => {
+  try {
+    console.log('=== STOK CSV UPLOAD START ===');
+
+    if (!req.file) {
+      return sendResponse(res, false, null, "No file uploaded", 400);
+    }
+
+    // Use csv-parser like the generic upload
+    let results = [];
+    try {
+      results = await validateCSVContent(req.file.path);
+    } catch (validationError) {
+      deleteUploadedFile(req.file.path);
+      return sendResponse(res, false, null, `CSV validation failed: ${validationError.message}`, 400);
+    }
+
+    // Process rows
+    let startIndex = 0;
+    if (results.length > 0) {
+      const firstRow = results[0];
+      const isHeaderRow = firstRow['0'] === 'kode_barang';
+      if (isHeaderRow) {
+        startIndex = 1; // Skip header row
+      }
+    }
+
+    if (results.length === 0 || startIndex >= results.length) {
+      deleteUploadedFile(req.file.path);
+      return sendResponse(res, false, null, "No data found in CSV file", 400);
+    }
+
+    const errors = [];
+    let importedCount = 0;
+
+    for (let i = startIndex; i < results.length; i++) {
+      const row = results[i];
+      try {
+        // Map CSV columns to stok fields using numeric indices
+        const mappedRow = {
+          kode_barang: row['0'],
+          nama_barang: row['1'],
+          kategori: row['2'],
+          harga_satuan: row['3'],
+          stok_awal: row['4'],
+          stok_minimum: row['5'],
+          stok_maksimum: row['6'],
+          status_barang: row['7']
+        };
+
+        // Validate required fields
+        const requiredFields = ["kode_barang", "nama_barang", "kategori", "harga_satuan", "stok_awal", "stok_minimum", "stok_maksimum", "status_barang"];
+        const missingFields = requiredFields.filter(field => !mappedRow[field] || mappedRow[field].toString().trim() === "");
+
+        if (missingFields.length > 0) {
+          errors.push(`Row ${importedCount + 1}: Missing fields: ${missingFields.join(', ')}`);
+          continue;
+        }
+
+        // Validate data types
+        const hargaSatuan = parseFloat(mappedRow.harga_satuan);
+        const stokAwal = parseInt(mappedRow.stok_awal);
+        const stokMinimum = parseInt(mappedRow.stok_minimum);
+        const stokMaksimum = parseInt(mappedRow.stok_maksimum);
+
+        if (isNaN(hargaSatuan) || hargaSatuan <= 0) {
+          errors.push(`Row ${importedCount + 1}: Invalid harga_satuan`);
+          continue;
+        }
+
+        if (isNaN(stokAwal) || stokAwal < 0) {
+          errors.push(`Row ${importedCount + 1}: Invalid stok_awal`);
+          continue;
+        }
+
+        if (isNaN(stokMinimum) || stokMinimum < 0) {
+          errors.push(`Row ${importedCount + 1}: Invalid stok_minimum`);
+          continue;
+        }
+
+        if (isNaN(stokMaksimum) || stokMaksimum <= stokMinimum) {
+          errors.push(`Row ${importedCount + 1}: Invalid stok_maksimum`);
+          continue;
+        }
+
+        // Check if exists, insert or update
+        const [existing] = await pool.execute(
+          "SELECT id FROM data_stok WHERE kode_barang = ?",
+          [mappedRow.kode_barang]
+        );
+
+        if (existing.length === 0) {
+          // Insert new record
+          await pool.execute(
+            `INSERT INTO data_stok (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [mappedRow.kode_barang, mappedRow.nama_barang, mappedRow.kategori, hargaSatuan, stokAwal, stokMinimum, stokMaksimum, stokAwal, mappedRow.status_barang]
+          );
+        } else {
+          // Update existing record - add uploaded stock to current stock
+          await pool.execute(
+            `UPDATE data_stok SET
+             nama_barang = ?, kategori = ?, harga_satuan = ?, stok_minimum = ?, stok_maksimum = ?, stok_sekarang = stok_sekarang + ?, status_barang = ?
+             WHERE kode_barang = ?`,
+            [mappedRow.nama_barang, mappedRow.kategori, hargaSatuan, stokMinimum, stokMaksimum, stokAwal, mappedRow.status_barang, mappedRow.kode_barang]
+          );
+        }
+        importedCount++;
+      } catch (error) {
+        if (error.message.includes('Duplicate entry')) {
+          importedCount++; // Count as successful
+        } else {
+          errors.push(`Row ${importedCount + 1}: ${error.message}`);
+        }
+      }
+    }
+
+    // Cleanup
+    deleteUploadedFile(req.file.path);
+
+    const success = importedCount > 0 && errors.length === 0;
+    const message = success ? "Successfully imported stok records" : "Imported records with errors";
+
+    sendResponse(res, true, {
+      success,
+      message,
+      imported_count: importedCount,
+      errors: errors.slice(0, 10)
+    });
+
+  } catch (error) {
+    if (req.file) {
+      deleteUploadedFile(req.file.path);
+    }
+    handleError(res, error, "Failed to upload stok data");
+  }
+});
+
+// Upload CSV data (generic) (generic)
 app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, res) => {
   try {
+    console.log('=== CSV UPLOAD START ===');
+    console.log('Request body:', req.body);
+    console.log('Request query:', req.query);
+    console.log('File:', req.file ? req.file.originalname : 'No file');
+
     if (!req.file) {
       return sendResponse(res, false, null, "No file uploaded", 400);
     }
@@ -1028,30 +1311,72 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
       );
     }
 
-    // Check upload type - detect from CSV content
-    let uploadType = 'latih'; // default
+    // Check upload type - prioritize parameter over auto-detection
+    let uploadType = (req.query && req.query.type) ? req.query.type :
+                     (req.body && req.body.type) ? req.body.type : 'latih';
 
-    if (results.length > 0) {
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('Type parameter from request:', req.body ? req.body.type : 'undefined');
+    console.log('Initial upload type:', uploadType);
+
+    // TEMPORARY: Force stok type for testing
+    if (req.file && req.file.originalname && req.file.originalname.includes('stok')) {
+      uploadType = 'stok';
+      console.log('Forced upload type to stok based on filename');
+    }
+
+    // If still default, try auto-detection from CSV content
+    if (uploadType === 'latih' && results.length > 0) {
       const firstRow = results[0];
-      // Check if first row contains data_stok headers (csv-parser creates numeric keys)
-      const rowValues = Object.values(firstRow);
-      if (rowValues.includes('kode_barang') && rowValues.includes('nama_barang')) {
+      console.log('Auto-detecting upload type from CSV headers...');
+      console.log('First row sample:', JSON.stringify(firstRow).substring(0, 200));
+
+      // Check if first row contains data_stok headers
+      const hasStokHeaders = firstRow['0'] === 'kode_barang' &&
+                            firstRow['1'] === 'nama_barang';
+
+      const hasLatihHeaders = firstRow['0'] === 'jenis_barang' &&
+                             firstRow['1'] === 'kategori';
+
+      if (hasStokHeaders) {
         uploadType = 'stok';
+        console.log('Auto-detected upload type: stok');
+      } else if (hasLatihHeaders) {
+        uploadType = 'latih';
+        console.log('Auto-detected upload type: latih');
+      } else {
+        console.log('No matching headers found, defaulting to latih');
       }
     }
+
+    console.log('Final upload type:', uploadType);
+
+    // TEMPORARY FIX: Force stok type for testing
+    uploadType = 'stok';
+    console.log('FORCED upload type to:', uploadType);
 
     try {
       // Process each row (skip header row if detected)
       let startIndex = 0;
-      if (results.length > 0 && results[0]['0'] === 'kode_barang') {
-        startIndex = 1; // Skip header row
+      if (results.length > 0) {
+        const firstRow = results[0];
+        const isHeaderRow = (uploadType === 'stok' && firstRow['0'] === 'kode_barang') ||
+                           (uploadType === 'latih' && firstRow['0'] === 'jenis_barang');
+        if (isHeaderRow) {
+          startIndex = 1; // Skip header row
+        }
       }
+
+      console.log('Starting to process', results.length - startIndex, 'rows, starting from index', startIndex);
 
       for (let i = startIndex; i < results.length; i++) {
         const row = results[i];
+        console.log('Processing row', i, 'with data:', JSON.stringify(row).substring(0, 100));
         try {
           // Validate required fields based on detected type
           let requiredFields = [];
+          let fieldMapping = {};
+
           if (uploadType === 'stok') {
             requiredFields = [
               "kode_barang",
@@ -1063,6 +1388,17 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
               "stok_maksimum",
               "status_barang",
             ];
+            // Map CSV columns to expected field names for stok
+            fieldMapping = {
+              '0': 'kode_barang',
+              '1': 'nama_barang',
+              '2': 'kategori',
+              '3': 'harga_satuan',
+              '4': 'stok_awal',
+              '5': 'stok_minimum',
+              '6': 'stok_maksimum',
+              '7': 'status_barang'
+            };
           } else {
             requiredFields = [
               "jenis_barang",
@@ -1075,16 +1411,39 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
               "status_penjualan",
               "status_stok",
             ];
+            // Map CSV columns to expected field names for latih
+            fieldMapping = {
+              '0': 'jenis_barang',
+              '1': 'kategori',
+              '2': 'harga',
+              '3': 'bulan',
+              '4': 'jumlah_penjualan',
+              '5': 'stok',
+              '6': 'status',
+              '7': 'status_penjualan',
+              '8': 'status_stok'
+            };
           }
-          console.log('Upload type:', uploadType, 'Required fields:', requiredFields);
+
+          console.log('Processing row', importedCount + 1, 'with upload type:', uploadType);
+          console.log('Required fields for', uploadType, ':', requiredFields);
+
+          // Create a mapped row object
+          const mappedRow = {};
+          Object.keys(fieldMapping).forEach(csvIndex => {
+            if (row[csvIndex] !== undefined) {
+              mappedRow[fieldMapping[csvIndex]] = row[csvIndex];
+            }
+          });
+
           const missingFields = [];
 
           for (const field of requiredFields) {
             if (
-              !row[field] ||
-              row[field].toString().trim() === "" ||
-              row[field] === null ||
-              row[field] === undefined
+              !mappedRow[field] ||
+              mappedRow[field].toString().trim() === "" ||
+              mappedRow[field] === null ||
+              mappedRow[field] === undefined
             ) {
               missingFields.push(field);
             }
@@ -1102,10 +1461,10 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
           // Validate fields based on type
           if (uploadType === 'stok') {
             // Validate numeric fields for data_stok
-            const hargaSatuan = parseFloat(row.harga_satuan);
-            const stokAwal = parseInt(row.stok_awal);
-            const stokMinimum = parseInt(row.stok_minimum);
-            const stokMaksimum = parseInt(row.stok_maksimum);
+            const hargaSatuan = parseFloat(mappedRow.harga_satuan);
+            const stokAwal = parseInt(mappedRow.stok_awal);
+            const stokMinimum = parseInt(mappedRow.stok_minimum);
+            const stokMaksimum = parseInt(mappedRow.stok_maksimum);
 
             if (isNaN(hargaSatuan) || hargaSatuan <= 0) {
               errors.push(`Row ${importedCount + 1}: Invalid harga_satuan value`);
@@ -1129,7 +1488,7 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
 
             // Validate status_barang
             const validStatusBarang = ["Aktif", "Tidak Aktif"];
-            if (!validStatusBarang.includes(row.status_barang)) {
+            if (!validStatusBarang.includes(mappedRow.status_barang)) {
               errors.push(
                 `Row ${
                   importedCount + 1
@@ -1139,14 +1498,14 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
             }
           } else {
             // Validate numeric fields for data_latih
-            if (isNaN(parseInt(row.harga)) || parseInt(row.harga) <= 0) {
+            if (isNaN(parseInt(mappedRow.harga)) || parseInt(mappedRow.harga) <= 0) {
               errors.push(`Row ${importedCount + 1}: Invalid harga value`);
               continue;
             }
 
             if (
-              isNaN(parseInt(row.jumlah_penjualan)) ||
-              parseInt(row.jumlah_penjualan) < 0
+              isNaN(parseInt(mappedRow.jumlah_penjualan)) ||
+              parseInt(mappedRow.jumlah_penjualan) < 0
             ) {
               errors.push(
                 `Row ${importedCount + 1}: Invalid jumlah_penjualan value`
@@ -1154,14 +1513,14 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
               continue;
             }
 
-            if (isNaN(parseInt(row.stok)) || parseInt(row.stok) < 0) {
+            if (isNaN(parseInt(mappedRow.stok)) || parseInt(mappedRow.stok) < 0) {
               errors.push(`Row ${importedCount + 1}: Invalid stok value`);
               continue;
             }
 
             // Validate enum values for data_latih
             const validStatus = ["eceran", "grosir"];
-            if (!validStatus.includes(row.status)) {
+            if (!validStatus.includes(mappedRow.status)) {
               errors.push(
                 `Row ${
                   importedCount + 1
@@ -1171,7 +1530,7 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
             }
 
             const validStatusPenjualan = ["Tinggi", "Sedang", "Rendah"];
-            if (!validStatusPenjualan.includes(row.status_penjualan)) {
+            if (!validStatusPenjualan.includes(mappedRow.status_penjualan)) {
               errors.push(
                 `Row ${
                   importedCount + 1
@@ -1183,7 +1542,7 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
             }
 
             const validStatusStok = ["Rendah", "Cukup", "Berlebih"];
-            if (!validStatusStok.includes(row.status_stok)) {
+            if (!validStatusStok.includes(mappedRow.status_stok)) {
               errors.push(
                 `Row ${
                   importedCount + 1
@@ -1203,15 +1562,15 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
                (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                row.kode_barang,
-                row.nama_barang,
-                row.kategori,
-                parseFloat(row.harga_satuan),
-                parseInt(row.stok_awal),
-                parseInt(row.stok_minimum),
-                parseInt(row.stok_maksimum),
-                parseInt(row.stok_awal), // Set stok_sekarang to stok_awal
-                row.status_barang,
+                mappedRow.kode_barang,
+                mappedRow.nama_barang,
+                mappedRow.kategori,
+                parseFloat(mappedRow.harga_satuan),
+                parseInt(mappedRow.stok_awal),
+                parseInt(mappedRow.stok_minimum),
+                parseInt(mappedRow.stok_maksimum),
+                parseInt(mappedRow.stok_awal), // Set stok_sekarang to stok_awal
+                mappedRow.status_barang,
               ]
             );
           } else {
@@ -1221,73 +1580,75 @@ app.post("/api/data/upload", uploadLimiter, upload.single("file"), async (req, r
                (jenis_barang, kategori, harga, bulan, jumlah_penjualan, stok, status, status_penjualan, status_stok)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                row.jenis_barang,
-                row.kategori,
-                parseInt(row.harga),
-                row.bulan,
-                parseInt(row.jumlah_penjualan),
-                parseInt(row.stok),
-                row.status,
-                row.status_penjualan,
-                row.status_stok,
+                mappedRow.jenis_barang,
+                mappedRow.kategori,
+                parseInt(mappedRow.harga),
+                mappedRow.bulan,
+                parseInt(mappedRow.jumlah_penjualan),
+                parseInt(mappedRow.stok),
+                mappedRow.status,
+                mappedRow.status_penjualan,
+                mappedRow.status_stok,
               ]
             );
           }
 
-          // Auto-sync to data_stok: Insert or update inventory
-          try {
-            // Check if product exists in data_stok
-            const [existing] = await pool.execute(
-              `SELECT id FROM data_stok WHERE nama_barang = ?`,
-              [row.jenis_barang]
-            );
-
-            if (existing.length === 0) {
-              // Product doesn't exist, create new entry
-              // Generate unique kode_barang
-              const kodeBarang = row.jenis_barang
-                .substring(0, 3)
-                .toUpperCase()
-                .replace(/[^A-Z]/g, 'X') +
-                String(Date.now()).slice(-3);
-
-              // Calculate stok_minimum (30% of current stok)
-              const stokMin = Math.floor(parseInt(row.stok) * 0.3);
-              // Calculate stok_maksimum (200% of current stok)
-              const stokMax = Math.floor(parseInt(row.stok) * 2);
-
-              await pool.execute(
-                `INSERT INTO data_stok
-                 (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aktif')`,
-                [
-                  kodeBarang,
-                  row.jenis_barang,
-                  row.kategori,
-                  parseInt(row.harga),
-                  parseInt(row.stok),
-                  stokMin,
-                  stokMax,
-                  parseInt(row.stok)
-                ]
+          // Auto-sync to data_stok: Insert or update inventory (only for latih type)
+          if (uploadType === 'latih') {
+            try {
+              // Check if product exists in data_stok
+              const [existing] = await pool.execute(
+                `SELECT id FROM data_stok WHERE nama_barang = ?`,
+                [mappedRow.jenis_barang]
               );
-            } else {
-              // Product exists, update stok_sekarang (use latest stok from import)
-              await pool.execute(
-                `UPDATE data_stok
-                 SET stok_sekarang = ?, harga_satuan = ?, kategori = ?
-                 WHERE nama_barang = ?`,
-                [
-                  parseInt(row.stok),
-                  parseInt(row.harga),
-                  row.kategori,
-                  row.jenis_barang
-                ]
-              );
+
+              if (existing.length === 0) {
+                // Product doesn't exist, create new entry
+                // Generate unique kode_barang
+                const kodeBarang = mappedRow.jenis_barang
+                  .substring(0, 3)
+                  .toUpperCase()
+                  .replace(/[^A-Z]/g, 'X') +
+                  String(Date.now()).slice(-3);
+
+                // Calculate stok_minimum (30% of current stok)
+                const stokMin = Math.floor(parseInt(mappedRow.stok) * 0.3);
+                // Calculate stok_maksimum (200% of current stok)
+                const stokMax = Math.floor(parseInt(mappedRow.stok) * 2);
+
+                await pool.execute(
+                  `INSERT INTO data_stok
+                   (kode_barang, nama_barang, kategori, harga_satuan, stok_awal, stok_minimum, stok_maksimum, stok_sekarang, status_barang)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aktif')`,
+                  [
+                    kodeBarang,
+                    mappedRow.jenis_barang,
+                    mappedRow.kategori,
+                    parseInt(mappedRow.harga),
+                    parseInt(mappedRow.stok),
+                    stokMin,
+                    stokMax,
+                    parseInt(mappedRow.stok)
+                  ]
+                );
+              } else {
+                // Product exists, update stok_sekarang (use latest stok from import)
+                await pool.execute(
+                  `UPDATE data_stok
+                   SET stok_sekarang = ?, harga_satuan = ?, kategori = ?
+                   WHERE nama_barang = ?`,
+                  [
+                    parseInt(mappedRow.stok),
+                    parseInt(mappedRow.harga),
+                    mappedRow.kategori,
+                    mappedRow.jenis_barang
+                  ]
+                );
+              }
+            } catch (syncError) {
+              console.warn(`Sync warning for ${mappedRow.jenis_barang}:`, syncError.message);
+              // Continue even if sync fails, data_unified is more important
             }
-          } catch (syncError) {
-            console.warn(`Sync warning for ${row.jenis_barang}:`, syncError.message);
-            // Continue even if sync fails, data_unified is more important
           }
 
           importedCount++;

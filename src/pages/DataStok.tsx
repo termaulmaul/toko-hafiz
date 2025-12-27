@@ -12,6 +12,8 @@ import axios from "axios";
 const DataStok = () => {
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [isValidating, setIsValidating] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch data stok from API
@@ -77,10 +79,37 @@ const DataStok = () => {
     },
   ];
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+      // Auto-validate when file is selected
+      await validateFile(file);
+    }
+  };
+
+  const validateFile = async (file: File) => {
+    setIsValidating(true);
+    setValidationResult(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post('http://localhost:3000/api/data/validate-stok-template', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setValidationResult(response.data.data);
+    } catch (error: any) {
+      setValidationResult({
+        isValid: false,
+        issues: [`Validation failed: ${error.response?.data?.message || error.message}`]
+      });
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -90,14 +119,17 @@ const DataStok = () => {
       return;
     }
 
+    // Check validation first
+    if (!validationResult?.isValid) {
+      toast.error("File CSV tidak valid. Perbaiki masalah yang terdeteksi sebelum upload.");
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', selectedFile);
 
     try {
-      // Use the working /api/data/upload endpoint with type parameter
-      formData.append('type', 'stok');
-
-      const response = await axios.post('http://localhost:3000/api/data/upload', formData, {
+      const response = await axios.post('http://localhost:3000/api/data/upload-stok', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -107,6 +139,7 @@ const DataStok = () => {
         toast.success(`Data berhasil diimport: ${response.data.data.imported_count} records`);
         refetch();
         setSelectedFile(null);
+        setValidationResult(null);
       } else {
         toast.error("Gagal import data: " + (response.data.data?.message || response.data.message));
       }
@@ -195,13 +228,67 @@ const DataStok = () => {
               Format: CSV. Download template di bawah ini untuk format yang benar.
             </p>
             {selectedFile && (
-              <p className="text-sm text-green-600 mt-1">
-                File dipilih: {selectedFile.name}
-              </p>
+              <div className="mt-2">
+                <p className="text-sm text-green-600">
+                  File dipilih: {selectedFile.name}
+                </p>
+
+                {/* Validation Status */}
+                {isValidating && (
+                  <div className="flex items-center gap-2 mt-2 text-blue-600">
+                    <Loader2 className="animate-spin" size={16} />
+                    <span className="text-sm">Memvalidasi file...</span>
+                  </div>
+                )}
+
+                {validationResult && (
+                  <div className="mt-3 p-3 rounded-lg border">
+                    {validationResult.isValid ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle size={16} />
+                        <span className="text-sm font-medium">File Valid</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600 mb-2">
+                        <AlertCircle size={16} />
+                        <span className="text-sm font-medium">File Tidak Valid</span>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-muted-foreground mt-2">
+                      <p>Total baris: {validationResult.totalRows}</p>
+                      <p>Baris data: {validationResult.dataRows}</p>
+                      {validationResult.summary && (
+                        <p>Valid: {validationResult.summary.validRows}, Invalid: {validationResult.summary.invalidRows}</p>
+                      )}
+                    </div>
+
+                    {validationResult.issues && validationResult.issues.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-red-600 mb-1">Masalah ditemukan:</p>
+                        <ul className="text-xs text-red-600 space-y-1 max-h-32 overflow-y-auto">
+                          {validationResult.issues.slice(0, 5).map((issue: string, index: number) => (
+                            <li key={index}>• {issue}</li>
+                          ))}
+                          {validationResult.issues.length > 5 && (
+                            <li className="text-muted-foreground">
+                              ... dan {validationResult.issues.length - 5} masalah lainnya
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleUpload} disabled={!selectedFile} className="flex items-center gap-2">
+            <Button
+              onClick={handleUpload}
+              disabled={!selectedFile || !validationResult?.isValid}
+              className="flex items-center gap-2"
+            >
               <Upload size={16} />
               Upload CSV
             </Button>

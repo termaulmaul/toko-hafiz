@@ -78,7 +78,7 @@ const validateCSVContent = (filePath) => {
     const maxRows = 100000; // Prevent DoS via large files
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({ skipEmptyLines: true, headers: false }))
       .on("data", (data) => {
         rowCount++;
 
