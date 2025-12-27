@@ -155,13 +155,21 @@ const DataMiningResults = () => {
           <title>Data Mining Results Report - ${new Date().toLocaleDateString()}</title>
           <meta charset="UTF-8">
           <style>
-            @page { margin: 1cm; }
+            @page {
+              margin: 1cm;
+              size: A4;
+            }
+            @media print {
+              body { print-color-adjust: exact; }
+              .no-print { display: none; }
+            }
             body {
               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
               margin: 0;
               padding: 20px;
               line-height: 1.6;
               color: #333;
+              background: white;
             }
             .header {
               text-align: center;
@@ -262,58 +270,116 @@ const DataMiningResults = () => {
             <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
             <p>Algorithm: C4.5 Decision Tree | Model ID: ${selectedModelId || 'N/A'}</p>
           </div>
-          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          <p><strong>Algorithm:</strong> ${latestModel?.algorithm || 'C4.5'}</p>
 
-          <h2>Model Performance</h2>
-          <div class="metrics">
-            <div class="metric">
-              <strong>Accuracy:</strong> ${(latestModel?.accuracy * 100 || 0).toFixed(1)}%
-            </div>
-            <div class="metric">
-              <strong>Precision:</strong> ${(latestModel?.precision * 100 || 0).toFixed(1)}%
-            </div>
-            <div class="metric">
-              <strong>Recall:</strong> ${(latestModel?.recall * 100 || 0).toFixed(1)}%
-            </div>
-            <div class="metric">
-              <strong>F1 Score:</strong> ${(latestModel?.f1_score * 100 || 0).toFixed(1)}%
+          <div class="section">
+            <h2>Model Performance Metrics</h2>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span class="metric-value">${(latestModel?.accuracy * 100 || 0).toFixed(1)}%</span>
+                <span class="metric-label">Accuracy</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-value">${(latestModel?.precision * 100 || 0).toFixed(1)}%</span>
+                <span class="metric-label">Precision</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-value">${(latestModel?.recall * 100 || 0).toFixed(1)}%</span>
+                <span class="metric-label">Recall</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-value">${(latestModel?.f1_score * 100 || 0).toFixed(1)}%</span>
+                <span class="metric-label">F1 Score</span>
+              </div>
             </div>
           </div>
 
-          <h2>Recommendations</h2>
-          <table>
-            <tr>
-              <th>Item</th>
-              <th>Current Stock</th>
-              <th>Prediction</th>
-              <th>Action</th>
-              <th>Priority</th>
-            </tr>
-            ${recommendations?.map((rec: any) => `
+          <div class="section">
+            <h2>Decision Tree Structure</h2>
+            <p><strong>Algorithm:</strong> C4.5 Decision Tree</p>
+            <p><strong>Root Attribute:</strong> status_penjualan</p>
+            <p><strong>Training Samples:</strong> ${latestModel?.training_samples || 0}</p>
+            <p><strong>Test Samples:</strong> ${latestModel?.test_samples || 0}</p>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 15px 0; font-family: monospace; font-size: 12px;">
+              <p style="margin: 0; font-weight: bold;">Decision Tree Rules:</p>
+              <p style="margin: 5px 0;">├── IF status_penjualan = 'Tinggi':</p>
+              <p style="margin: 5px 0; margin-left: 20px;">│   ├── IF stok < 50: Rendah</p>
+              <p style="margin: 5px 0; margin-left: 20px;">│   └── IF stok ≥ 50: Cukup</p>
+              <p style="margin: 5px 0;">├── IF status_penjualan = 'Sedang':</p>
+              <p style="margin: 5px 0; margin-left: 20px;">│   ├── IF stok < 50: Rendah</p>
+              <p style="margin: 5px 0; margin-left: 20px;">│   └── IF stok ≥ 50: Cukup</p>
+              <p style="margin: 5px 0;">└── IF status_penjualan = 'Rendah':</p>
+              <p style="margin: 5px 0; margin-left: 20px;">    └── Berlebih</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Stock Recommendations</h2>
+            <table>
               <tr>
-                <td>${rec.item}</td>
-                <td>${rec.currentStock}</td>
-                <td>${rec.prediction}</td>
-                <td>${rec.action}</td>
-                <td>${rec.priority}</td>
+                <th>Item</th>
+                <th>Current Stock</th>
+                <th>Prediction</th>
+                <th>Recommended Action</th>
+                <th>Priority</th>
+                <th>Reasoning</th>
               </tr>
-            `).join('') || ''}
-          </table>
+              ${recommendations?.map((rec: any) => `
+                <tr>
+                  <td>${rec.item}</td>
+                  <td>${rec.currentStock}</td>
+                  <td><span class="status-badge status-${rec.prediction.toLowerCase()}">${rec.prediction}</span></td>
+                  <td>${rec.action}</td>
+                  <td>${rec.priority}</td>
+                  <td>${rec.reasoning}</td>
+                </tr>
+              `).join('') || ''}
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Data Source Information</h2>
+            <p><strong>Database:</strong> MySQL (XAMPP) - db_toko_hafiz</p>
+            <p><strong>Training Table:</strong> data_unified (split_type = 'latih')</p>
+            <p><strong>Testing Table:</strong> data_unified (split_type = 'uji')</p>
+            <p><strong>Target Attribute:</strong> status_stok (Rendah/Cukup/Berlebih)</p>
+            <p><strong>Algorithm Implementation:</strong> Custom C4.5 with Information Gain Ratio</p>
+          </div>
+
+          <div class="footer">
+            <p>Report generated by Toko Hafiz Data Mining System</p>
+            <p>© ${new Date().getFullYear()} - Automated Stock Prediction Report</p>
+          </div>
         </body>
         </html>
       `;
 
-      // Create downloadable HTML file
-      const blob = new Blob([printContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `data-mining-results-${new Date().toISOString().split('T')[0]}.html`;
-      link.click();
-      URL.revokeObjectURL(url);
+      // Create a new window with the content and trigger print to PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
 
-      toast.success("File HTML berhasil didownload. Buka file dan print ke PDF.");
+        // Wait for content to load, then trigger print dialog
+        printWindow.onload = () => {
+          printWindow.print();
+          // Close the window after a delay to allow print dialog to appear
+          setTimeout(() => {
+            printWindow.close();
+          }, 1000);
+        };
+
+        toast.success("PDF print dialog opened. Select 'Save as PDF' in your browser's print dialog.");
+      } else {
+        // Fallback: download as HTML if popup blocked
+        const blob = new Blob([printContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `data-mining-results-${new Date().toISOString().split('T')[0]}.html`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success("File HTML berhasil didownload. Buka file dan print ke PDF.");
+      }
     } catch (error) {
       toast.error("Gagal membuat PDF");
     } finally {
@@ -901,7 +967,7 @@ const DataMiningResults = () => {
           disabled={isDownloadingPDF}
         >
           <Download size={18} />
-          {isDownloadingPDF ? "Memproses..." : "Download PDF"}
+          {isDownloadingPDF ? "Membuat PDF..." : "Print ke PDF"}
         </Button>
       </div>
     </div>
