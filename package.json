@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"yarn backend:start\" \"yarn frontend:start\"",
+    "dev": "concurrently \"yarn dev:backend\" \"yarn dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "cd backend && node server.js",
     "frontend:start": "node scripts/run-script.js start-frontend",

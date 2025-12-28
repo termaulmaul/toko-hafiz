@@ -22,11 +22,10 @@ async function initDatabase() {
   try {
     db = await mysql.createConnection({
       host: process.env.DB_HOST || "localhost",
+      port: parseInt(process.env.DB_PORT || "3306"),
       user: process.env.DB_USER || "root",
       password: process.env.DB_PASSWORD || "",
       database: process.env.DB_NAME || "db_toko_hafiz_simple",
-      // XAMPP socket path
-      socketPath: process.env.DB_SOCKET || "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
       waitForConnections: true,
       connectionLimit: 5, // Reduced for small shop
       queueLimit: 0

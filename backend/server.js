@@ -95,7 +95,6 @@ const dbConfig = {
   database: process.env.DB_NAME || "db_toko_hafiz",
   charset: "utf8mb4",
   timezone: process.env.DB_TIMEZONE || "+07:00",
-  socketPath: process.env.DB_SOCKET_PATH || "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
 };
 
 // Log the actual database configuration being used
@@ -104,7 +103,6 @@ console.log(`  Host: ${dbConfig.host}`);
 console.log(`  Port: ${dbConfig.port}`);
 console.log(`  User: ${dbConfig.user}`);
 console.log(`  Database: ${dbConfig.database}`);
-console.log(`  Socket: ${dbConfig.socketPath}`);
 console.log(`  Environment DB_NAME: ${process.env.DB_NAME || 'not set'}`);
 
 // Create database pool
@@ -812,14 +810,12 @@ app.get("/api/data-stok", async (req, res) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit) : null;
     let query = "SELECT * FROM data_stok ORDER BY kode_barang";
-    let params = [];
 
     if (limit && limit > 0) {
-      query += " LIMIT ?";
-      params.push(limit);
+      query += ` LIMIT ${limit}`;
     }
 
-    const [rows] = await pool.execute(query, params);
+    const [rows] = await pool.query(query);
     sendResponse(res, true, rows);
   } catch (error) {
     handleError(res, error, "Failed to fetch data stok");
